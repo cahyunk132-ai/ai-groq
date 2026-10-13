@@ -40,3 +40,54 @@ test('parseJsonLoose menerima JSON dengan teks tambahan', () => {
   assert.deepEqual(parseJsonLoose('Berikut: {"action":"flee"} semoga membantu'), { action: 'flee' });
   assert.throws(() => parseJsonLoose('tidak ada json'), /bukan JSON/);
 });
+
+test('gpt-oss memakai reasoning_effort low dan budget token yang cukup', async () => {
+  let body;
+  const fetchImpl = async (_url, init) => {
+    body = JSON.parse(init.body);
+    return reply('{"action":"explore"}')();
+  };
+  await askGroq([], { apiKey: 'k', model: 'openai/gpt-oss-120b', fetchImpl });
+  assert.equal(body.reasoning_effort, 'low');
+  assert.ok(body.max_tokens >= 2048);
+});
+
+test('model non-gpt-oss tidak mengirim reasoning_effort', async () => {
+  let body;
+  const fetchImpl = async (_url, init) => {
+    body = JSON.parse(init.body);
+    return reply('{"action":"explore"}')();
+  };
+  await askGroq([], { apiKey: 'k', model: 'llama-3.1-8b-instant', fetchImpl });
+  assert.equal('reasoning_effort' in body, false);
+});
+
+test('json_validate_failed dengan failed_generation yang utuh diselamatkan', async () => {
+  const fetchImpl = async () => ({
+    ok: false,
+    status: 400,
+    text: async () => JSON.stringify({
+      error: { code: 'json_validate_failed', failed_generation: '{"action":"explore"}' },
+    }),
+  });
+  const out = await askGroq([], { apiKey: 'k', fetchImpl, retries: 0 });
+  assert.deepEqual(out, { action: 'explore' });
+});
+
+test('json_validate_failed yang tidak utuh dicoba ulang sekali', async () => {
+  let calls = 0;
+  const fetchImpl = async () => {
+    calls += 1;
+    if (calls === 1) {
+      return {
+        ok: false,
+        status: 400,
+        text: async () => JSON.stringify({ error: { code: 'json_validate_failed', failed_generation: 'ma' } }),
+      };
+    }
+    return reply('{"action":"idle","seconds":3}')();
+  };
+  const out = await askGroq([], { apiKey: 'k', fetchImpl });
+  assert.equal(calls, 2);
+  assert.equal(out.action, 'idle');
+});
