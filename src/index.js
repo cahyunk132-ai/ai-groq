@@ -33,6 +33,18 @@ if (config.mc.version) botOptions.version = config.mc.version;
 const bot = mineflayer.createBot(botOptions);
 bot.loadPlugin(pathfinder);
 
+// Server 26.3 menendang client yang tidak mengirim paket tick_end setiap tick
+// (multiplayer.disconnect.invalid_player_movement). Mineflayer belum mengirimnya,
+// jadi kita kirim sendiri setiap physics tick, seperti yang dilakukan client vanilla.
+bot.on('physicsTick', () => {
+  if (!bot.entity || !bot._client) return;
+  try {
+    bot._client.write('tick_end', {});
+  } catch (err) {
+    log(`gagal mengirim tick_end: ${err.message}`);
+  }
+});
+
 const decide = createBrain({ log });
 
 bot.once('spawn', () => {
