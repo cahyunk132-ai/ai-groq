@@ -73,3 +73,68 @@ test('parseTarget menerima koordinat, id, atau null', () => {
   assert.equal(parseTarget(undefined), null);
   assert.throws(() => parseTarget([1, 2]), DecisionError);
 });
+
+const richState = {
+  ...state,
+  position: [0, 64, 0],
+  inventory: [
+    ...state.inventory,
+    { name: 'oak_planks', count: 40, isFood: false },
+  ],
+  nearbyResources: [
+    { name: 'oak_log', count: 12, distance: 3.2 },
+    { name: 'stone', count: 5, distance: 6 },
+  ],
+  craftable: ['wooden_pickaxe', 'stick'],
+  pendingChat: [],
+};
+
+test('gather hanya untuk blok yang ada di sekitar', () => {
+  const d = validateDecision({ action: 'gather', item_to_use: 'oak_log', count: 4 }, richState);
+  assert.equal(d.item_to_use, 'oak_log');
+  assert.equal(d.count, 4);
+  assert.throws(() => validateDecision({ action: 'gather', item_to_use: 'diamond_ore' }, richState), /tidak ada/);
+});
+
+test('gather membatasi jumlah ke 1..8', () => {
+  assert.equal(validateDecision({ action: 'gather', item_to_use: 'oak_log', count: 99 }, richState).count, 8);
+  assert.equal(validateDecision({ action: 'gather', item_to_use: 'oak_log', count: -3 }, richState).count, 1);
+});
+
+test('craft hanya untuk item yang bisa dibuat sekarang', () => {
+  const d = validateDecision({ action: 'craft', item_to_use: 'wooden_pickaxe', count: 1 }, richState);
+  assert.equal(d.item_to_use, 'wooden_pickaxe');
+  assert.throws(() => validateDecision({ action: 'craft', item_to_use: 'diamond_sword' }, richState), /tidak bisa dibuat/);
+});
+
+test('build butuh bahan di inventory dan struktur yang dikenal', () => {
+  const d = validateDecision({ action: 'build', item_to_use: 'oak_planks', structure: 'shelter' }, richState);
+  assert.equal(d.structure, 'shelter');
+  assert.equal(d.target, null);
+  assert.throws(() => validateDecision({ action: 'build', item_to_use: 'cobblestone' }, richState), /tidak punya/);
+  assert.throws(() => validateDecision({ action: 'build', item_to_use: 'oak_planks', structure: 'castle' }, richState), /tidak dikenal/);
+});
+
+test('build menolak target yang terlalu jauh', () => {
+  assert.throws(
+    () => validateDecision({ action: 'build', item_to_use: 'oak_planks', target: [100, 64, 0] }, richState),
+    /terlalu jauh/,
+  );
+});
+
+test('idle membatasi durasi ke 2..15 detik', () => {
+  assert.equal(validateDecision({ action: 'idle', seconds: 100 }, richState).seconds, 15);
+  assert.equal(validateDecision({ action: 'idle' }, richState).seconds, 5);
+});
+
+test('say dipotong dan dirapikan; chat wajib punya teks', () => {
+  const d = validateDecision({ action: 'explore', say: '  halo\n semua  ' }, richState);
+  assert.equal(d.say, 'halo semua');
+  assert.throws(() => validateDecision({ action: 'chat' }, richState), /butuh field say/);
+  assert.equal(validateDecision({ action: 'chat', say: 'hai' }, richState).say, 'hai');
+});
+
+test('goal disimpan jika berupa teks', () => {
+  assert.equal(validateDecision({ action: 'explore', goal: 'bangun rumah' }, richState).goal, 'bangun rumah');
+  assert.equal(validateDecision({ action: 'explore', goal: 42 }, richState).goal, null);
+});

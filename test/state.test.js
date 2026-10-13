@@ -49,3 +49,32 @@ test('currentTask memilih Mining jika hanya ada ore', () => {
   assert.equal(currentTask(base), 'Mining');
   assert.equal(currentTask({ ...base, nearbyBlocks: { ores: [], crops: [], farmland: [] } }), 'Exploring');
 });
+
+test('currentTask: Crafting saat belum punya pickaxe tapi bisa dibuat', () => {
+  const s = {
+    health: 20, maxHealth: 20, hunger: 20, inventory: [],
+    nearbyEntities: [], nearbyBlocks: { ores: [], crops: [], farmland: [] },
+    craftable: ['wooden_pickaxe'], nearbyResources: [],
+  };
+  assert.equal(currentTask(s), 'Crafting');
+});
+
+test('currentTask: Gathering saat kayu sedikit dan ada di sekitar', () => {
+  const s = {
+    health: 20, maxHealth: 20, hunger: 20,
+    inventory: [{ name: 'wooden_pickaxe', count: 1 }],
+    nearbyEntities: [], nearbyBlocks: { ores: [], crops: [], farmland: [] },
+    craftable: [], nearbyResources: [{ name: 'oak_log', count: 4, distance: 5 }],
+  };
+  assert.equal(currentTask(s), 'Gathering');
+});
+
+test('currentTask: Socializing jika ada chat yang belum dijawab', () => {
+  const s = {
+    health: 20, maxHealth: 20, hunger: 20,
+    inventory: [{ name: 'wooden_pickaxe', count: 1 }],
+    nearbyEntities: [], nearbyBlocks: { ores: [], crops: [], farmland: [] },
+    craftable: [], nearbyResources: [], pendingChat: [{ from: 'Steve', message: 'halo' }],
+  };
+  assert.equal(currentTask(s), 'Socializing');
+});

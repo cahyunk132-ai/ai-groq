@@ -2,16 +2,19 @@
 // Pathfinding memakai mineflayer-pathfinder; AI hanya memilih apa yang dilakukan, bukan cara bergerak.
 import pathfinderPkg from 'mineflayer-pathfinder';
 import { Vec3 } from 'vec3';
-import { CROP_MAX_AGE, SEED_ITEMS, HOSTILE_FLEE_DISTANCE } from './constants.js';
+import { CROP_MAX_AGE, SEED_ITEMS, HOSTILE_FLEE_DISTANCE, toolKindFor } from './constants.js';
 import { cropAge } from './state.js';
+import { buildCells, FACE_DIRECTIONS } from './build.js';
 
 const { goals } = pathfinderPkg;
 
 const MOVE_TIMEOUT_MS = 15000;
 const ATTACK_TIMEOUT_MS = 8000;
-const EXPLORE_RADIUS = 12;
 const FLEE_DISTANCE = 12;
+const MAX_CHAT_LENGTH = 200;
+const MAX_PLACEMENTS = 40;
 const TOOL_TIERS = ['netherite', 'diamond', 'iron', 'stone', 'golden', 'wooden'];
+const NON_SOLID = new Set(['air', 'cave_air', 'void_air', 'water', 'lava']);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 function withTimeout(promise, ms, bot) {
@@ -25,7 +28,7 @@ function withTimeout(promise, ms, bot) {
   return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 }
 
-/** Memilih alat terbaik (pickaxe/sword/axe) berdasarkan tingkat material. */
+/** Memilih alat terbaik (pickaxe/sword/axe/shovel) berdasarkan tingkat material. */
 export function bestTool(bot, kind) {
   const tools = bot.inventory.items().filter((i) => i.name.endsWith(`_${kind}`));
   const rank = (i) => {
@@ -51,11 +54,48 @@ function blockAtPos(bot, pos) {
   return bot.blockAt(new Vec3(pos[0], pos[1], pos[2]));
 }
 
+/** Blok padat (bukan udara/air/cairan), agar bisa dijadikan tumpuan. */
+export function isSolid(block) {
+  return Boolean(block) && !NON_SOLID.has(block.name);
+}
+
+/**
+ * Mencari blok tetangga padat untuk menaruh blok di `cell`.
+ * Mengembalikan blok referensi dan vektor sisi (dari referensi ke cell), atau null.
+ * `getBlock` dipisah agar fungsi ini bisa diuji tanpa bot.
+ */
+export function pickReference(getBlock, cell) {
+  for (const [dx, dy, dz] of FACE_DIRECTIONS) {
+    const n = [cell[0] + dx, cell[1] + dy, cell[2] + dz];
+    const block = getBlock(n);
+    if (isSolid(block)) {
+      return { block, face: [-dx || 0, -dy || 0, -dz || 0] }; // `|| 0` menghindari -0
+    }
+  }
+  return null;
+}
+
+/** Menaruh satu blok dari inventory di posisi `cell`. Mengembalikan true jika berhasil. */
+async function placeAt(bot, itemName, cell) {
+  const item = bot.inventory.items().find((i) => i.name === itemName);
+  if (!item) return false;
+  const ref = pickReference((c) => bot.blockAt(new Vec3(c[0], c[1], c[2])), cell);
+  if (!ref) return false;
+  await bot.equip(item, 'hand');
+  await bot.placeBlock(ref.block, new Vec3(...ref.face));
+  return true;
+}
+
 async function doExplore(bot) {
+  // Jarak dan arah acak agar tidak selalu berjalan lurus.
   const p = bot.entity.position;
-  const dx = (Math.random() * 2 - 1) * EXPLORE_RADIUS;
-  const dz = (Math.random() * 2 - 1) * EXPLORE_RADIUS;
-  const goal = new goals.GoalNearXZ(Math.floor(p.x + dx), Math.floor(p.z + dz), 2);
+  const angle = Math.random() * Math.PI * 2;
+  const dist = 6 + Math.random() * 10;
+  const goal = new goals.GoalNearXZ(
+    Math.floor(p.x + Math.cos(angle) * dist),
+    Math.floor(p.z + Math.sin(angle) * dist),
+    2,
+  );
   await withTimeout(bot.pathfinder.goto(goal), MOVE_TIMEOUT_MS, bot);
   return { message: 'menjelajah selesai' };
 }
@@ -74,6 +114,100 @@ async function doMine(bot, d) {
   if (!target || !bot.canDigBlock(target)) throw new Error(`tidak bisa menambang ${block.name}`);
   await bot.dig(target);
   return { message: `menambang ${block.name} di ${d.target}` };
+}
+
+async function doGather(bot, d) {
+  const name = d.item_to_use;
+  const blockType = bot.registry.blocksByName[name];
+  if (!blockType) throw new Error(`blok ${name} tidak dikenal`);
+  const kind = toolKindFor(name);
+  let collected = 0;
+  for (let i = 0; i < d.count; i++) {
+    const block = bot.findBlock({ matching: blockType.id, maxDistance: 32 });
+    if (!block) break;
+    const pos = [block.position.x, block.position.y, block.position.z];
+    await moveNear(bot, pos, 3);
+    if (kind) {
+      await equipTool(bot, kind).catch(() => bot.unequip('hand'));
+    }
+    const target = blockAtPos(bot, pos);
+    if (!target || target.name !== name || !bot.canDigBlock(target)) continue;
+    await bot.dig(target);
+    collected += 1;
+  }
+  if (collected === 0) throw new Error(`tidak ada ${name} yang bisa dikumpulkan`);
+  return { message: `mengumpulkan ${collected} ${name}` };
+}
+
+/** Memasang meja kerja di dekat bot, lalu mengembalikan blok mejanya. */
+async function placeTableNear(bot) {
+  const p = bot.entity.position;
+  const base = [Math.floor(p.x), Math.floor(p.y), Math.floor(p.z)];
+  for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+    const cell = [base[0] + dx, base[1], base[2] + dz];
+    const here = blockAtPos(bot, cell);
+    if (!here || here.name !== 'air') continue;
+    if (await placeAt(bot, 'crafting_table', cell)) {
+      return bot.findBlock({ matching: bot.registry.blocksByName.crafting_table.id, maxDistance: 6 });
+    }
+  }
+  throw new Error('tidak menemukan tempat untuk meja kerja');
+}
+
+async function doCraft(bot, d) {
+  const item = bot.registry.itemsByName[d.item_to_use];
+  if (!item) throw new Error(`item ${d.item_to_use} tidak dikenal`);
+
+  const tableId = bot.registry.blocksByName.crafting_table?.id;
+  let table = tableId !== undefined ? bot.findBlock({ matching: tableId, maxDistance: 32 }) : null;
+  if (table) {
+    const tp = [table.position.x, table.position.y, table.position.z];
+    if (bot.entity.position.distanceTo(table.position) > 3) await moveNear(bot, tp, 2);
+  } else if (bot.inventory.items().some((i) => i.name === 'crafting_table')) {
+    table = await placeTableNear(bot);
+  }
+
+  let recipe = bot.recipesFor(item.id, null, d.count, table)[0];
+  let times = 1;
+  if (recipe) {
+    times = Math.ceil(d.count / recipe.result.count);
+  } else {
+    recipe = bot.recipesFor(item.id, null, 1, table)[0];
+  }
+  if (!recipe) throw new Error(`bahan ${d.item_to_use} belum cukup`);
+
+  await bot.craft(recipe, times, table || undefined);
+  return { message: `membuat ${d.item_to_use} x${times * recipe.result.count}` };
+}
+
+/** Membangun struktur di sekitar origin. Blok yang tidak punya tumpuan dilewati. */
+async function doBuild(bot, d) {
+  const p = bot.entity.position;
+  const origin = d.target ?? [Math.floor(p.x) + 3, Math.floor(p.y), Math.floor(p.z)];
+  const cells = buildCells(d.structure || 'platform', origin);
+  const getBlock = (c) => bot.blockAt(new Vec3(c[0], c[1], c[2]));
+
+  let placed = 0;
+  let attempted = 0;
+  for (const cell of cells) {
+    if (attempted >= MAX_PLACEMENTS) break;
+    if (!bot.inventory.items().some((i) => i.name === d.item_to_use)) break;
+    const here = getBlock(cell);
+    if (here && here.name !== 'air') continue;
+    if (!pickReference(getBlock, cell)) continue;
+
+    attempted += 1;
+    if (bot.entity.position.distanceTo(new Vec3(...cell)) > 4) {
+      await moveNear(bot, cell, 3).catch(() => {});
+    }
+    try {
+      if (await placeAt(bot, d.item_to_use, cell)) placed += 1;
+    } catch {
+      // Satu blok gagal (misalnya ada entitas di posisi itu); lanjut ke blok berikutnya.
+    }
+  }
+  if (placed === 0) throw new Error(`tidak ada blok yang berhasil dipasang (${cells.length} sel)`);
+  return { message: `membangun ${d.structure}: ${placed}/${cells.length} blok` };
 }
 
 async function doAttack(bot, d) {
@@ -162,11 +296,34 @@ async function doFlee(bot, d) {
   return { message: 'kabur ke area aman' };
 }
 
+/** Diam sebentar dan menoleh ke sekitar, seperti pemain yang sedang berpikir. */
+async function doIdle(bot, d) {
+  const end = Date.now() + d.seconds * 1000;
+  while (Date.now() < end) {
+    const yaw = bot.entity.yaw + (Math.random() - 0.5) * 1.2;
+    const pitch = (Math.random() - 0.5) * 0.4;
+    await bot.look(yaw, pitch, false).catch(() => {});
+    await sleep(1200);
+  }
+  return { message: `diam ${d.seconds} detik` };
+}
+
+/** Mengirim teks ke chat game. Dipotong agar tidak melebihi batas server. */
+export function say(bot, text) {
+  if (!text) return;
+  try {
+    bot.chat(String(text).slice(0, MAX_CHAT_LENGTH));
+  } catch (err) {
+    console.error(`gagal chat: ${err.message}`);
+  }
+}
+
 /**
  * Menjalankan satu keputusan. Error ditangkap dan dikembalikan sebagai pesan
  * agar loop tidak berhenti.
  */
 export async function execute(bot, d) {
+  say(bot, d.say);
   try {
     switch (d.action) {
       case 'explore': return await doExplore(bot);
@@ -175,6 +332,11 @@ export async function execute(bot, d) {
       case 'farm': return await doFarm(bot, d);
       case 'eat': return await doEat(bot, d);
       case 'flee': return await doFlee(bot, d);
+      case 'gather': return await doGather(bot, d);
+      case 'craft': return await doCraft(bot, d);
+      case 'build': return await doBuild(bot, d);
+      case 'idle': return await doIdle(bot, d);
+      case 'chat': return { message: `bilang: ${d.say}` };
       default: throw new Error(`aksi tidak dikenal: ${d.action}`);
     }
   } catch (err) {

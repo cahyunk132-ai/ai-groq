@@ -6,6 +6,7 @@ import { buildState } from './state.js';
 import { createBrain } from './brain.js';
 import { execute } from './executor.js';
 import { runOodaLoop } from './loop.js';
+import { Memory } from './memory.js';
 
 const { pathfinder, Movements } = pathfinderPkg;
 
@@ -14,13 +15,9 @@ if (!config.groq.apiKey) {
   process.exit(1);
 }
 
-/** Bot siap jika sudah menerima data HP dari server dan HP-nya di atas 0. */
-function isReady(bot) {
-  return typeof bot.health === 'number' && bot.health > 0 && bot.isAlive !== false;
-}
-
 const log = (msg) => console.log(`${new Date().toISOString()} ${msg}`);
 const controller = new AbortController();
+const memory = new Memory();
 
 const botOptions = {
   host: config.mc.host,
@@ -45,16 +42,33 @@ bot.on('physicsTick', () => {
   }
 });
 
+// Chat pemain lain dicatat agar AI bisa menjawab.
+bot.on('chat', (username, message) => {
+  if (username === bot.username) return;
+  memory.recordChat(username, message);
+});
+
 const decide = createBrain({ log });
+
+/** Bot siap jika sudah menerima data HP dari server dan HP-nya di atas 0. */
+function isReady(bot) {
+  return typeof bot.health === 'number' && bot.health > 0 && bot.isAlive !== false;
+}
 
 bot.once('spawn', () => {
   bot.pathfinder.setMovements(new Movements(bot));
   log(`Bot "${bot.username}" masuk ke ${config.mc.host}:${config.mc.port}`);
   runOodaLoop({
     // Jangan mengambil keputusan saat bot belum menerima data HP atau sedang mati.
-    observe: () => (isReady(bot) ? buildState(bot, config.loop.senseRadius) : null),
+    observe: () => (isReady(bot) ? buildState(bot, config.loop.senseRadius, memory) : null),
     decide,
-    act: (d) => execute(bot, d),
+    act: async (d) => {
+      if (d.goal) memory.setGoal(d.goal);
+      const result = await execute(bot, d);
+      memory.recordAction({ action: d.action, target: d.target, result: result?.message });
+      memory.clearPendingChat();
+      return result;
+    },
     tickMs: config.loop.tickMs,
     signal: controller.signal,
     log,

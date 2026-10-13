@@ -26,6 +26,25 @@ export const ORE_PRIORITY = [
 ];
 
 export const ORE_NAME = /_ore$|^ancient_debris$/;
+
+// Blok yang bisa dikumpulkan (dipakai untuk kayu dan bahan bangunan dasar).
+export const RESOURCE_NAME = /(_log|_wood)$|^(stone|cobblestone|sand|gravel|dirt|clay)$/;
+export const LOG_NAME = /(_log|_wood)$/;
+
+// Item yang dianggap bahan bangunan (dipakai untuk memutuskan kapan membangun).
+export const BUILD_MATERIAL_NAME = /(_planks|^cobblestone$|^dirt$|^stone$)/;
+export const BUILD_MATERIAL_MIN = 31; // cukup untuk satu shelter 3x3x4
+
+// Item yang dicoba dibuat oleh bot. Hanya yang bisa dibuat sekarang yang dikirim ke Groq.
+export const CRAFT_CANDIDATES = [
+  'crafting_table', 'stick', 'torch', 'chest', 'furnace', 'bread', 'shears',
+  'wooden_pickaxe', 'wooden_axe', 'wooden_shovel', 'wooden_sword',
+  'stone_pickaxe', 'stone_axe', 'stone_shovel', 'stone_sword',
+  'iron_pickaxe', 'iron_axe', 'iron_shovel', 'iron_sword',
+  'oak_planks', 'spruce_planks', 'birch_planks', 'jungle_planks', 'acacia_planks',
+  'dark_oak_planks', 'mangrove_planks', 'cherry_planks', 'bamboo_planks',
+];
+
 export const HP_MAX = 20;
 export const HP_CRITICAL_RATIO = 0.3;     // di bawah 30% => kondisi kritis
 export const HUNGER_LOW = 14;             // di bawah 14/20 => lapar
@@ -33,3 +52,13 @@ export const HOSTILE_ENGAGE_DISTANCE = 10;
 export const HOSTILE_FLEE_DISTANCE = 4;
 export const BLOCK_SCAN_RADIUS = 8;
 export const BLOCK_SCAN_COUNT = 12;
+export const RESOURCE_SCAN_RADIUS = 16;
+export const RESOURCE_SCAN_COUNT = 64;
+
+/** Jenis alat yang dibutuhkan untuk menggali sebuah blok, atau null jika tidak perlu. */
+export function toolKindFor(blockName) {
+  if (/(_log|_wood|_planks|_stem|crafting_table|chest|_fence)$/.test(blockName)) return 'axe';
+  if (/(stone|cobble|_ore|deepslate|brick|obsidian|andesite|diorite|granite|tuff|furnace|netherrack|terracotta|concrete)/.test(blockName)) return 'pickaxe';
+  if (/^(dirt|grass_block|sand|gravel|clay|snow|soul_sand|podzol|mycelium|farmland|coarse_dirt|rooted_dirt)$/.test(blockName)) return 'shovel';
+  return null;
+}

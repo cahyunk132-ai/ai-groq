@@ -1,8 +1,9 @@
 // OBSERVE + STATE PARSER: mengubah kondisi bot menjadi objek JSON ringkas untuk Groq.
 import {
-  AGGRESSIVE_MOBS, PASSIVE_TYPES, CROP_MAX_AGE, ORE_NAME, ORE_PRIORITY,
+  AGGRESSIVE_MOBS, PASSIVE_TYPES, CROP_MAX_AGE, ORE_NAME, ORE_PRIORITY, RESOURCE_NAME, LOG_NAME,
+  BUILD_MATERIAL_NAME, BUILD_MATERIAL_MIN, CRAFT_CANDIDATES,
   HP_MAX, HP_CRITICAL_RATIO, HUNGER_LOW, HOSTILE_ENGAGE_DISTANCE,
-  BLOCK_SCAN_RADIUS, BLOCK_SCAN_COUNT,
+  BLOCK_SCAN_RADIUS, BLOCK_SCAN_COUNT, RESOURCE_SCAN_RADIUS, RESOURCE_SCAN_COUNT,
 } from './constants.js';
 
 const round1 = (n) => Math.round(n * 10) / 10;
@@ -62,11 +63,15 @@ function findNearest(bot, ids, maxDistance, count) {
     .sort((a, b) => a.distance - b.distance);
 }
 
+function priorityOf(name) {
+  const idx = ORE_PRIORITY.findIndex((key) => name.includes(key));
+  return idx === -1 ? ORE_PRIORITY.length : idx;
+}
+
 /** Memindai ore, tanaman, dan farmland kosong di sekitar bot. */
 export function scanBlocks(bot, radius = BLOCK_SCAN_RADIUS) {
   const maxDistance = Math.min(radius, BLOCK_SCAN_RADIUS);
   const count = BLOCK_SCAN_COUNT;
-  const me = bot.entity.position;
 
   // Ore, diurutkan berdasarkan prioritas lalu jarak.
   const oreIds = blockIdsMatching(bot, ORE_NAME);
@@ -102,9 +107,20 @@ export function scanBlocks(bot, radius = BLOCK_SCAN_RADIUS) {
   return { ores, crops, farmland };
 }
 
-function priorityOf(name) {
-  const idx = ORE_PRIORITY.findIndex((key) => name.includes(key));
-  return idx === -1 ? ORE_PRIORITY.length : idx;
+/** Ringkasan blok yang bisa dikumpulkan (kayu, batu, pasir, dll) per jenis. */
+export function scanResources(bot, radius = RESOURCE_SCAN_RADIUS) {
+  const ids = blockIdsMatching(bot, RESOURCE_NAME);
+  const found = findNearest(bot, ids, Math.min(radius, RESOURCE_SCAN_RADIUS), RESOURCE_SCAN_COUNT);
+  const byName = new Map();
+  for (const { pos, distance } of found) {
+    const name = bot.blockAt(pos)?.name;
+    if (!name) continue;
+    const entry = byName.get(name) || { name, count: 0, distance: Infinity };
+    entry.count += 1;
+    entry.distance = Math.min(entry.distance, round1(distance));
+    byName.set(name, entry);
+  }
+  return [...byName.values()].sort((a, b) => a.distance - b.distance);
 }
 
 /** Ringkasan inventaris: nama, jumlah, sisa durabilitas, dan apakah item bisa dimakan. */
@@ -119,6 +135,39 @@ export function summarizeInventory(bot) {
   });
 }
 
+/**
+ * Daftar item yang bisa dibuat sekarang. Meja kerja dipakai jika ada di dekat bot,
+ * atau jika bot membawa meja di inventory (bot akan memasangnya saat membuat).
+ */
+export function listCraftable(bot) {
+  if (typeof bot.recipesFor !== 'function' || !bot.registry?.itemsByName) return [];
+  const tableId = bot.registry.blocksByName?.crafting_table?.id;
+  const table = tableId !== undefined ? bot.findBlock({ matching: tableId, maxDistance: 4 }) : null;
+  // recipesFor hanya memeriksa apakah meja ada (truthy). Bot yang membawa meja
+  // bisa memasangnya saat membuat item, jadi dihitung sebagai tersedia.
+  const carriesTable = bot.inventory.items().some((i) => i.name === 'crafting_table');
+  const craftingTable = table || (carriesTable ? { placeable: true } : null);
+  const names = [];
+  for (const name of CRAFT_CANDIDATES) {
+    const item = bot.registry.itemsByName[name];
+    if (!item) continue;
+    try {
+      const recipes = bot.recipesFor(item.id, null, 1, craftingTable);
+      if (recipes && recipes.length) names.push(name);
+    } catch {
+      // Resep tidak bisa dicek di versi ini; lewati.
+    }
+  }
+  return names;
+}
+
+/** Total jumlah item yang namanya cocok dengan pola. */
+function countMatching(inventory, pattern) {
+  return inventory
+    .filter((i) => pattern.test(i.name))
+    .reduce((sum, i) => sum + i.count, 0);
+}
+
 /** Menentukan prioritas tugas dari state (logika berbasis aturan). */
 export function currentTask(state) {
   const hpRatio = state.health / state.maxHealth;
@@ -130,9 +179,26 @@ export function currentTask(state) {
   const hasFood = state.inventory.some((i) => i.isFood);
   if (state.hunger < HUNGER_LOW && hasFood) return 'Eating';
 
+  const hasPickaxe = state.inventory.some((i) => i.name.endsWith('_pickaxe'));
+  if (!hasPickaxe && (state.craftable || []).some((n) => n.endsWith('_pickaxe'))) return 'Crafting';
+
   const { crops, farmland } = state.nearbyBlocks;
   if (crops.some((c) => c.mature) || farmland.length) return 'Farming';
+
+  if (state.pendingChat && state.pendingChat.length) return 'Socializing';
+
+  const logCount = countMatching(state.inventory, LOG_NAME);
+  const hasLogsNearby = (state.nearbyResources || []).some((r) => LOG_NAME.test(r.name));
+  if (logCount < 8 && hasLogsNearby) return 'Gathering';
+
+  const materials = countMatching(state.inventory, BUILD_MATERIAL_NAME);
+  const recentlyBuilt = (state.recentActions || []).some((a) => a.action === 'build');
+  if (materials >= BUILD_MATERIAL_MIN && !recentlyBuilt) return 'Building';
+
   if (state.nearbyBlocks.ores.length) return 'Mining';
+  if ((state.nearbyResources || []).length && countMatching(state.inventory, /^cobblestone$/) < 16) {
+    return 'Gathering';
+  }
   return 'Exploring';
 }
 
@@ -140,11 +206,14 @@ export function currentTask(state) {
  * Membangun state lengkap dari bot Mineflayer.
  * @param {object} bot instance Mineflayer
  * @param {number} radius radius sensor entitas (blok)
+ * @param {import('./memory.js').Memory} [memory] memori jangka pendek bot
  */
-export function buildState(bot, radius = 16) {
+export function buildState(bot, radius = 16, memory = null) {
   const p = bot.entity.position;
   const scan = scanBlocks(bot, radius);
+  const mem = memory ? memory.snapshot() : { currentGoal: null, recentActions: [], pendingChat: [] };
   const state = {
+    name: bot.username,
     health: bot.health ?? 0,
     maxHealth: HP_MAX,
     hunger: bot.food ?? 0,
@@ -156,8 +225,12 @@ export function buildState(bot, radius = 16) {
       crops: scan.crops,
       farmland: scan.farmland,
     },
+    nearbyResources: scanResources(bot, radius),
+    craftable: listCraftable(bot),
+    currentGoal: mem.currentGoal,
+    recentActions: mem.recentActions,
+    pendingChat: mem.pendingChat,
   };
   state.currentTaskPriority = currentTask(state);
   return state;
 }
-

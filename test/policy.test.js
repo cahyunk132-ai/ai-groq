@@ -45,3 +45,33 @@ test('override: tidak mengubah keputusan saat HP cukup', () => {
   const d = { action: 'mine', target: [1, 1, 1], thought: '', item_to_use: null };
   assert.equal(applySafetyOverrides(d, base()), d);
 });
+
+test('fallback: craft pickaxe jika belum punya dan bisa dibuat', () => {
+  const s = base({ craftable: ['wooden_pickaxe'], inventory: [] });
+  const d = fallbackDecision(s);
+  assert.equal(d.action, 'craft');
+  assert.equal(d.item_to_use, 'wooden_pickaxe');
+});
+
+test('fallback: kumpulkan kayu jika sedikit dan ada di sekitar', () => {
+  const s = base({
+    inventory: [{ name: 'wooden_pickaxe', count: 1 }],
+    nearbyResources: [{ name: 'oak_log', count: 5, distance: 4 }],
+  });
+  const d = fallbackDecision(s);
+  assert.equal(d.action, 'gather');
+  assert.equal(d.item_to_use, 'oak_log');
+});
+
+test('fallback: bangun shelter jika bahan cukup', () => {
+  const s = base({
+    inventory: [
+      { name: 'wooden_pickaxe', count: 1 },
+      { name: 'oak_log', count: 10 },
+      { name: 'cobblestone', count: 40 },
+    ],
+  });
+  const d = fallbackDecision(s);
+  assert.equal(d.action, 'build');
+  assert.equal(d.structure, 'shelter');
+});
