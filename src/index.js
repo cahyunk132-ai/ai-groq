@@ -8,8 +8,9 @@ import { execute } from './executor.js';
 import { runOodaLoop } from './loop.js';
 import { Memory } from './memory.js';
 import { GroqBudget, fileStore } from './budget.js';
+import { createMovements } from './movements.js';
 
-const { pathfinder, Movements } = pathfinderPkg;
+const { pathfinder } = pathfinderPkg;
 
 if (!config.groq.apiKey) {
   console.error('GROQ_API_KEY belum diset. Salin .env.example ke .env lalu isi kuncinya.');
@@ -64,7 +65,7 @@ function isReady(bot) {
 }
 
 bot.once('spawn', () => {
-  bot.pathfinder.setMovements(new Movements(bot));
+  bot.pathfinder.setMovements(createMovements(bot));
   log(`Bot "${bot.username}" masuk ke ${config.mc.host}:${config.mc.port}`);
   runOodaLoop({
     // Jangan mengambil keputusan saat bot belum menerima data HP atau sedang mati.

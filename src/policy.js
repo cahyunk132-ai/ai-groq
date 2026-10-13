@@ -5,9 +5,10 @@
 import { STRUCTURES, blocksNeeded } from './build.js';
 import {
   HP_CRITICAL_RATIO, HOSTILE_ENGAGE_DISTANCE, HOSTILE_FLEE_DISTANCE, HUNGER_LOW, HP_MAX,
-  SEED_ITEMS, LOG_NAME, BUILD_MATERIAL_NAME, BUILD_MATERIAL_MIN,
+  SEED_ITEMS, LOG_NAME, BUILD_MATERIAL_NAME, BUILD_MATERIAL_MIN, MINE_MAX_DEPTH,
 } from './constants.js';
 import { hasUsableTool, currentTask } from './state.js';
+import { needsStaircase } from './mining.js';
 
 const decision = (action, extra = {}) => ({
   thought: extra.thought || '',
@@ -66,11 +67,19 @@ function craftFirst(craftable, names) {
   return names.find((n) => craftable.includes(n)) || null;
 }
 
-/** Ore yang bisa ditambang dengan pickaxe yang dimiliki. */
+/**
+ * Ore yang bisa ditambang dengan pickaxe yang dimiliki, dan tidak terlalu dalam.
+ * Ore yang bisa dijangkau langsung didahulukan; yang perlu tangga menyusul.
+ */
 function mineableOres(state) {
   const stoneOrBetter = state.inventory.some((i) => /^(stone|iron|golden|diamond|netherite)_pickaxe$/.test(i.name)
     && (i.durability === undefined || i.durability >= 10));
-  return (state.nearbyBlocks.ores || []).filter((o) => stoneOrBetter || !STONE_TIER_ORE.test(o.name));
+  const feetY = state.position ? state.position[1] : null;
+  const ores = (state.nearbyBlocks.ores || [])
+    .filter((o) => stoneOrBetter || !STONE_TIER_ORE.test(o.name))
+    .filter((o) => feetY === null || feetY - o.pos[1] <= MINE_MAX_DEPTH);
+  const reachable = (o) => feetY === null || !needsStaircase(feetY, o.pos[1]);
+  return [...ores.filter(reachable), ...ores.filter((o) => !reachable(o))];
 }
 
 /** Pilihan kegiatan utama, urutan mengikuti prioritas survival lalu produktivitas. */

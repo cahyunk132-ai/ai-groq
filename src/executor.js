@@ -4,11 +4,13 @@ import pathfinderPkg from 'mineflayer-pathfinder';
 import { Vec3 } from 'vec3';
 import {
   CROP_MAX_AGE, SEED_ITEMS, HOSTILE_FLEE_DISTANCE, MIN_TOOL_DURABILITY, TILLABLE_NAME, toolKindFor,
+  MINE_MAX_DEPTH,
 } from './constants.js';
 import { cropAge } from './state.js';
 import { plan, FACE_DIRECTIONS } from './build.js';
 import { ACCENT_NAME } from './constants.js';
 import { findSite, isValidSite } from './site.js';
+import { needsStaircase, stairDirection, isHazardName } from './mining.js';
 
 const { goals } = pathfinderPkg;
 
@@ -114,12 +116,67 @@ async function doMine(bot, d) {
   if (pick.maxDurability && pick.maxDurability - (pick.durabilityUsed || 0) < MIN_TOOL_DURABILITY) {
     throw new Error('pickaxe hampir hancur, perlu diganti');
   }
+  // Ore yang terlalu dalam dicapai dengan tangga, bukan lubang lurus ke bawah.
+  if (needsStaircase(Math.floor(bot.entity.position.y), d.target[1])) {
+    await digStaircaseTo(bot, d.target);
+  }
   await moveNear(bot, d.target, 3);
   await equipTool(bot, 'pickaxe');
   const target = blockAtPos(bot, d.target);
   if (!target || !bot.canDigBlock(target)) throw new Error(`tidak bisa menambang ${block.name}`);
   await bot.dig(target);
   return { message: `menambang ${block.name} di ${d.target}` };
+}
+
+/** Membuka satu sel: menggali jika padat. */
+async function openCell(bot, pos) {
+  const cell = blockAtPos(bot, pos);
+  if (cell && cell.name !== 'air' && cell.name !== 'cave_air') {
+    if (!bot.canDigBlock(cell)) throw new Error(`tidak bisa menggali ${cell.name}`);
+    await bot.dig(cell);
+  }
+}
+
+/** Apakah ada cairan atau lava di sekitar `pos` (enam arah). */
+function hazardAround(bot, pos) {
+  const dirs = [[1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1], [0, 1, 0], [0, -1, 0]];
+  return dirs.some(([dx, dy, dz]) => {
+    const b = blockAtPos(bot, [pos[0] + dx, pos[1] + dy, pos[2] + dz]);
+    return Boolean(b) && isHazardName(b.name);
+  });
+}
+
+/**
+ * Menggali tangga menurun menuju ore. Tiap langkah: gali ke arah ore (kaki dan kepala),
+ * jalan ke sana, gali satu blok di bawahnya, lalu turun. Berhenti saat ore sudah dekat.
+ * Batal jika ada lava atau air di dekat terowongan.
+ */
+async function digStaircaseTo(bot, ore) {
+  await equipTool(bot, 'pickaxe');
+  for (let step = 0; step < MINE_MAX_DEPTH; step++) {
+    const p = bot.entity.position;
+    const feet = [Math.floor(p.x), Math.floor(p.y), Math.floor(p.z)];
+    if (!needsStaircase(feet[1], ore[1])) return;
+
+    const { dx, dz } = stairDirection(feet, ore);
+    const ahead = [feet[0] + dx, feet[1], feet[2] + dz];
+    const aheadHead = [ahead[0], ahead[1] + 1, ahead[2]];
+    const down = [ahead[0], ahead[1] - 1, ahead[2]];
+    if (hazardAround(bot, ahead) || hazardAround(bot, down) || hazardAround(bot, aheadHead)) {
+      throw new Error('ada lava atau air dekat terowongan, batal menggali');
+    }
+    const floorBelow = blockAtPos(bot, [down[0], down[1] - 1, down[2]]);
+    if (!floorBelow || floorBelow.name === 'air') {
+      throw new Error('ada rongga di bawah tangga, batal menggali');
+    }
+
+    await openCell(bot, ahead);
+    await openCell(bot, aheadHead);
+    await withTimeout(bot.pathfinder.goto(new goals.GoalBlock(...ahead)), MOVE_TIMEOUT_MS, bot);
+    await openCell(bot, down);
+    await withTimeout(bot.pathfinder.goto(new goals.GoalBlock(...down)), MOVE_TIMEOUT_MS, bot);
+  }
+  throw new Error('terowongan terlalu dalam');
 }
 
 async function doGather(bot, d) {
@@ -129,7 +186,13 @@ async function doGather(bot, d) {
   const kind = toolKindFor(name);
   let collected = 0;
   for (let i = 0; i < d.count; i++) {
-    const block = bot.findBlock({ matching: blockType.id, maxDistance: 32 });
+    // Blok di bawah kaki (lebih dari satu blok) tidak diambil: tidak membuat lubang vertikal.
+    const feetY = Math.floor(bot.entity.position.y);
+    const block = bot.findBlock({
+      matching: blockType.id,
+      maxDistance: 32,
+      useExtraInfo: (b) => b.position.y >= feetY - 1,
+    });
     if (!block) break;
     const pos = [block.position.x, block.position.y, block.position.z];
     await moveNear(bot, pos, 3);

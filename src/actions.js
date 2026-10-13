@@ -1,6 +1,6 @@
 // ACT (validasi): memeriksa JSON dari Groq sebelum dieksekusi.
 // Keputusan yang tidak valid ditolak, bukan dijalankan apa adanya.
-import { HUNGER_LOW, SEED_ITEMS } from './constants.js';
+import { HUNGER_LOW, SEED_ITEMS, MINE_MAX_DEPTH } from './constants.js';
 import { hasUsableTool } from './state.js';
 import { STRUCTURES, blocksNeeded } from './build.js';
 
@@ -88,6 +88,9 @@ export function validateDecision(raw, state) {
       }
       const ore = state.nearbyBlocks.ores.find((o) => samePos(o.pos, target.pos));
       if (!ore) throw new DecisionError(`tidak ada ore di ${target.pos}`);
+      if (state.position && state.position[1] - target.pos[1] > MINE_MAX_DEPTH) {
+        throw new DecisionError(`ore di ${target.pos} terlalu dalam (lebih dari ${MINE_MAX_DEPTH} blok)`);
+      }
       decision.target = target.pos;
       return decision;
     }

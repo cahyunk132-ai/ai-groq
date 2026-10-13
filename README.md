@@ -50,6 +50,7 @@ yang tidak terlihat oleh bot.
 - HP di bawah 30% dan musuh agresif dalam 4 blok: aksi dipaksa menjadi `flee`.
 - HP di bawah 30% tanpa musuh dekat dan ada makanan: aksi dipaksa menjadi `eat`.
 - Jika Groq timeout, error HTTP, atau JSON tidak valid: kebijakan cadangan berbasis aturan dipakai.
+- Penambangan tidak membuat lubang lurus ke bawah. Pathfinder tidak boleh menggali ke bawah (`src/movements.js`). Ore yang dalam dicapai dengan tangga menurun yang menggali ke arah ore, dan dibatalkan jika ada lava atau air. Ore lebih dari 12 blok di bawah kaki diabaikan.
 - Groq tidak dipanggil di setiap tick. Panggilan dijadwalkan (rencana tiap 5 menit, chat tiap 1 menit) dan dibatasi kuota harian. Di antaranya, kebijakan cadangan yang menjalankan bot.
 
 ## Menjalankan

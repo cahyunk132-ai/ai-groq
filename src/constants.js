@@ -68,3 +68,9 @@ export function toolKindFor(blockName) {
   if (/^(dirt|grass_block|sand|gravel|clay|snow|soul_sand|podzol|mycelium|farmland|coarse_dirt|rooted_dirt)$/.test(blockName)) return 'shovel';
   return null;
 }
+
+// Penambangan: ore dalam jangkauan ini (blok dari telapak kaki bot) ditambang langsung.
+// Ore lebih dalam dicapai dengan tangga menurun, bukan lubang vertikal.
+export const MINE_REACH_DY = 2;
+// Ore lebih dalam dari ini (blok dari kaki bot) tidak diambil.
+export const MINE_MAX_DEPTH = 12;
