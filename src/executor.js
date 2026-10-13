@@ -2,9 +2,12 @@
 // Pathfinding memakai mineflayer-pathfinder; AI hanya memilih apa yang dilakukan, bukan cara bergerak.
 import pathfinderPkg from 'mineflayer-pathfinder';
 import { Vec3 } from 'vec3';
-import { CROP_MAX_AGE, SEED_ITEMS, HOSTILE_FLEE_DISTANCE, MIN_TOOL_DURABILITY, toolKindFor } from './constants.js';
+import {
+  CROP_MAX_AGE, SEED_ITEMS, HOSTILE_FLEE_DISTANCE, MIN_TOOL_DURABILITY, TILLABLE_NAME, toolKindFor,
+} from './constants.js';
 import { cropAge } from './state.js';
-import { buildCells, FACE_DIRECTIONS } from './build.js';
+import { plan, FACE_DIRECTIONS } from './build.js';
+import { ACCENT_NAME } from './constants.js';
 import { findSite, isValidSite } from './site.js';
 
 const { goals } = pathfinderPkg;
@@ -13,7 +16,7 @@ const MOVE_TIMEOUT_MS = 15000;
 const ATTACK_TIMEOUT_MS = 8000;
 const FLEE_DISTANCE = 12;
 const MAX_CHAT_LENGTH = 200;
-const MAX_PLACEMENTS = 80; // cukup untuk struktur terbesar (tower 47 blok)
+const MAX_PLACEMENTS = 120; // cukup untuk struktur terbesar (tower ~98 blok)
 const TOOL_TIERS = ['netherite', 'diamond', 'iron', 'stone', 'golden', 'wooden'];
 const NON_SOLID = new Set(['air', 'cave_air', 'void_air', 'water', 'lava']);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -184,6 +187,17 @@ async function doCraft(bot, d) {
 }
 
 /**
+ * Blok aksen untuk pilar/sudut: material lain dari inventaris (yang jumlahnya terbanyak).
+ * Mengembalikan null jika tidak ada, sehingga semua sel memakai blok utama.
+ */
+export function pickAccent(inventory, mainName) {
+  const candidates = inventory
+    .filter((i) => i.name !== mainName && ACCENT_NAME.test(i.name) && i.count > 0)
+    .sort((a, b) => b.count - a.count);
+  return candidates[0]?.name ?? null;
+}
+
+/**
  * Membangun satu struktur. Jika AI tidak memberi target, bot mencari lahan datar
  * di dekat bangunan terakhir (atau di dekat dirinya). Blok yang tidak punya tumpuan dilewati.
  */
@@ -204,13 +218,17 @@ async function doBuild(bot, d, ctx = {}) {
     if (!origin) throw new Error(`tidak ada lahan datar untuk ${structure} di dekat sini`);
   }
 
-  const cells = buildCells(structure, origin);
+  const { place } = plan(structure, origin);
   const getCell = (c) => at(c[0], c[1], c[2]);
+  const accentName = pickAccent(bot.inventory.items(), d.item_to_use);
+  const hasItem = (name) => bot.inventory.items().some((i) => i.name === name);
   let placed = 0;
   let attempted = 0;
-  for (const cell of cells) {
+  for (const { pos: cell, role } of place) {
     if (attempted >= MAX_PLACEMENTS) break;
-    if (!bot.inventory.items().some((i) => i.name === d.item_to_use)) break;
+    // Blok aksen dipakai jika masih ada; jika habis, pakai blok utama.
+    const useName = role === 'accent' && accentName && hasItem(accentName) ? accentName : d.item_to_use;
+    if (!hasItem(useName)) break;
     const here = getCell(cell);
     if (here && here.name !== 'air') continue;
     if (!pickReference(getCell, cell)) continue;
@@ -220,14 +238,14 @@ async function doBuild(bot, d, ctx = {}) {
       await moveNear(bot, cell, 3).catch(() => {});
     }
     try {
-      if (await placeAt(bot, d.item_to_use, cell)) placed += 1;
+      if (await placeAt(bot, useName, cell)) placed += 1;
     } catch {
       // Satu blok gagal (misalnya ada entitas di posisi itu); lanjut ke blok berikutnya.
     }
   }
-  if (placed === 0) throw new Error(`tidak ada blok yang berhasil dipasang (${cells.length} sel)`);
+  if (placed === 0) throw new Error(`tidak ada blok yang berhasil dipasang (${place.length} sel)`);
   return {
-    message: `membangun ${structure} di ${origin}: ${placed}/${cells.length} blok`,
+    message: `membangun ${structure} di ${origin}: ${placed}/${place.length} blok`,
     origin,
     structure,
   };
@@ -274,6 +292,15 @@ async function doFarm(bot, d) {
     const crop = blockAtPos(bot, d.target);
     await bot.dig(crop);
     return { message: `memanen ${block.name}` };
+  }
+
+  if (TILLABLE_NAME.test(block.name)) {
+    // Cangkul tanah di atas: tanah berubah menjadi farmland, bibit ditanam di tick berikutnya.
+    const hoe = bestTool(bot, 'hoe');
+    if (!hoe) throw new Error('tidak punya cangkul');
+    await bot.equip(hoe, 'hand');
+    await bot.activateBlock(blockAtPos(bot, d.target));
+    return { message: `membajak ${block.name} menjadi farmland` };
   }
 
   if (block.name === 'farmland') {

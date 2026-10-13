@@ -1,5 +1,5 @@
 // Pemilihan lokasi bangunan. Murni: menerima getBlock(x, y, z) dan mengembalikan blok atau null.
-import { footprintOf, buildCells } from './build.js';
+import { plan } from './build.js';
 
 const AIR_LIKE = new Set(['air', 'cave_air', 'void_air']);
 // Tanah yang tidak boleh dijadikan pondasi.
@@ -7,16 +7,20 @@ const BLOCKED_GROUND = new Set([
   'water', 'lava', 'farmland', 'wheat', 'carrots', 'potatoes', 'beetroots', 'cactus', 'bedrock',
 ]);
 
-/** Apakah origin ini bisa dibangun: pondasi padat dan rata, dan semua sel bangunan kosong. */
+/**
+ * Apakah origin ini bisa dibangun: seluruh area lapisan dasar berdiri di tanah padat yang rata,
+ * dan semua sel bangunan (termasuk interior, pintu, jendela) kosong.
+ */
 export function isValidSite(getBlock, origin, structure, from) {
   const [ox, oy, oz] = origin;
+  const { place, clear, footprint } = plan(structure, origin);
 
-  for (const [x, z] of footprintOf(structure, origin)) {
+  for (const [x, z] of footprint) {
     const ground = getBlock(x, oy - 1, z);
     if (!ground || BLOCKED_GROUND.has(ground.name) || AIR_LIKE.has(ground.name)) return false;
   }
 
-  const cells = buildCells(structure, origin);
+  const cells = [...place.map((p) => p.pos), ...clear];
   for (const [x, y, z] of cells) {
     // Jangan membangun di atas posisi bot sendiri.
     if (from && x === from[0] && z === from[2] && (y === from[1] || y === from[1] + 1)) return false;

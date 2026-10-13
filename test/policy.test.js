@@ -69,7 +69,7 @@ test('fallback: bangun shelter jika bahan cukup', () => {
     inventory: [
       { name: 'wooden_pickaxe', count: 1 },
       { name: 'oak_log', count: 10 },
-      { name: 'cobblestone', count: 40 },
+      { name: 'cobblestone', count: 80 },
     ],
   });
   const d = fallbackDecision(s);
@@ -81,7 +81,8 @@ test('nextStructure: tidak mengulang jenis bangunan terakhir', async () => {
   const { nextStructure } = await import('../src/policy.js');
   assert.equal(nextStructure(100, null), 'shelter');
   assert.equal(nextStructure(100, 'shelter'), 'tower');
-  assert.equal(nextStructure(10, 'shelter'), 'platform');
+  assert.equal(nextStructure(30, 'shelter'), 'platform');
+  assert.equal(nextStructure(10, 'shelter'), null);
   assert.equal(nextStructure(3, null), null);
 });
 

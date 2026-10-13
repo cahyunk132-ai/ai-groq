@@ -7,6 +7,7 @@ import { createBrain } from './brain.js';
 import { execute } from './executor.js';
 import { runOodaLoop } from './loop.js';
 import { Memory } from './memory.js';
+import { GroqBudget, fileStore } from './budget.js';
 
 const { pathfinder, Movements } = pathfinderPkg;
 
@@ -48,7 +49,14 @@ bot.on('chat', (username, message) => {
   memory.recordChat(username, message);
 });
 
-const decide = createBrain({ log });
+// Groq hanya dipanggil sesuai jadwal dan kuota; di antaranya bot memakai kebijakan cadangan.
+const budget = new GroqBudget({
+  dailyCallCap: config.groq.dailyCallCap,
+  planIntervalMs: config.groq.planIntervalMs,
+  chatIntervalMs: config.groq.chatIntervalMs,
+  store: fileStore(config.groq.usageFile),
+});
+const decide = createBrain({ log, budget });
 
 /** Bot siap jika sudah menerima data HP dari server dan HP-nya di atas 0. */
 function isReady(bot) {

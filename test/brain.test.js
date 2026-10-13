@@ -38,3 +38,29 @@ test('brain menolak keputusan Groq yang tidak valid lalu memakai cadangan', asyn
   const d = await decide(state);
   assert.equal(d.source, 'fallback');
 });
+
+test('brain tidak memanggil Groq saat budget belum mengizinkan; memakai cadangan', async () => {
+  let calls = 0;
+  const budget = { check: () => ({ ok: false, reason: 'menunggu jadwal' }), recordCall() {}, recordRateLimit() {} };
+  const decide = createBrain({ ask: async () => { calls += 1; return {}; }, log: () => {}, budget });
+  const d = await decide({ ...state, nearbyEntities: [] });
+  assert.equal(calls, 0);
+  assert.equal(d.source, 'fallback');
+});
+
+test('brain mencatat panggilan dan jeda saat Groq membalas 429', async () => {
+  const events = [];
+  const budget = {
+    check: () => ({ ok: true, reason: 'rencana' }),
+    recordCall: () => events.push('call'),
+    recordRateLimit: () => events.push('429'),
+  };
+  const decide = createBrain({
+    ask: async () => { throw new Error('Groq HTTP 429: rate limit'); },
+    log: () => {},
+    budget,
+  });
+  const d = await decide({ ...state, nearbyEntities: [] });
+  assert.deepEqual(events, ['call', '429']);
+  assert.equal(d.source, 'fallback');
+});

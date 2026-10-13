@@ -21,7 +21,10 @@ src/
   groq.js       klien Groq (fetch bawaan, tanpa SDK)
   brain.js      DECIDE: Groq -> validasi -> penyaring keselamatan (atau cadangan)
   actions.js    validasi JSON keputusan terhadap state
-  policy.js     kebijakan cadangan dan penimpaan keselamatan (HP kritis)
+  policy.js     kebijakan cadangan (kebun, alat, tambang, bangun, chat, jeda menoleh) dan penimpaan keselamatan
+  budget.js     pembatas panggilan Groq (jadwal, kuota harian, jeda setelah 429)
+  build.js      template bangunan (platform, shelter, tower, wall) sebagai grid per lapisan
+  site.js       pemilihan lokasi bangunan (tanah rata, ruang kosong, dekat bangunan sebelumnya)
   executor.js   ACT: menerjemahkan aksi menjadi perintah Mineflayer
   loop.js       loop OODA
   constants.js  ambang batas dan daftar blok/mob
@@ -47,6 +50,7 @@ yang tidak terlihat oleh bot.
 - HP di bawah 30% dan musuh agresif dalam 4 blok: aksi dipaksa menjadi `flee`.
 - HP di bawah 30% tanpa musuh dekat dan ada makanan: aksi dipaksa menjadi `eat`.
 - Jika Groq timeout, error HTTP, atau JSON tidak valid: kebijakan cadangan berbasis aturan dipakai.
+- Groq tidak dipanggil di setiap tick. Panggilan dijadwalkan (rencana tiap 5 menit, chat tiap 1 menit) dan dibatasi kuota harian. Di antaranya, kebijakan cadangan yang menjalankan bot.
 
 ## Menjalankan
 
@@ -67,7 +71,11 @@ Variabel penting di `.env`:
 | `GROQ_MODEL`      | `openai/gpt-oss-120b`    | Model Groq. `llama-3.3-70b-versatile` sudah dihentikan Groq pada 2026-08-16 |
 | `MC_HOST`/`MC_PORT` | `localhost` / `25565`  | Alamat server                                                |
 | `MC_AUTH`         | `offline`                | `offline` untuk server non-premium/LAN, `microsoft` untuk akun resmi |
-| `LOOP_TICK_MS`    | `30000`                  | Jeda antar keputusan. Free tier Groq gpt-oss hanya 8000 TPM; `max_tokens` ikut terhitung, jadi tick kecil langsung kena 429 |
+| `LOOP_TICK_MS`    | `3000`                   | Jeda antar tick (aksi). Groq tidak dipanggil di setiap tick |
+| `GROQ_DAILY_CALL_CAP` | `50`                 | Maksimal panggilan Groq per hari (UTC). Free tier 200K token/hari, satu panggilan ~3100 token |
+| `GROQ_PLAN_INTERVAL_MS` | `300000`           | Jeda minimal antar panggilan Groq untuk rencana biasa (5 menit) |
+| `GROQ_CHAT_INTERVAL_MS` | `60000`            | Jeda minimal antar panggilan Groq saat ada chat yang belum dijawab (1 menit) |
+| `GROQ_USAGE_FILE` | `.groq-usage.json`         | Berkas hitungan kuota harian, agar tetap terhitung setelah restart |
 
 ## Batasan yang perlu diketahui
 

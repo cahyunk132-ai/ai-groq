@@ -80,7 +80,7 @@ const richState = {
   position: [0, 64, 0],
   inventory: [
     ...state.inventory,
-    { name: 'oak_planks', count: 40, isFood: false },
+    { name: 'oak_planks', count: 70, isFood: false },
   ],
   nearbyResources: [
     { name: 'oak_log', count: 12, distance: 3.2 },
@@ -141,8 +141,8 @@ test('goal disimpan jika berupa teks', () => {
 });
 
 test('build menolak jika bahan kurang untuk struktur', () => {
-  const few = { ...richState, inventory: [{ name: 'oak_planks', count: 20, isFood: false }] };
-  assert.throws(() => validateDecision({ action: 'build', item_to_use: 'oak_planks', structure: 'shelter' }, few), /butuh 31/);
+  const few = { ...richState, inventory: [{ name: 'oak_planks', count: 26, isFood: false }] };
+  assert.throws(() => validateDecision({ action: 'build', item_to_use: 'oak_planks', structure: 'shelter' }, few), /butuh 69/);
   assert.equal(validateDecision({ action: 'build', item_to_use: 'oak_planks', structure: 'wall' }, few).structure, 'wall');
 });
 

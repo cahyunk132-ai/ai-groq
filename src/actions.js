@@ -96,7 +96,11 @@ export function validateDecision(raw, state) {
       if (!target?.pos) throw new DecisionError('farm butuh target [x, y, z]');
       const crop = state.nearbyBlocks.crops.find((c) => samePos(c.pos, target.pos));
       const land = state.nearbyBlocks.farmland.find((f) => samePos(f.pos, target.pos));
-      if (crop) {
+      const soil = (state.nearbyBlocks.tillable || []).find((t) => samePos(t.pos, target.pos));
+      if (soil) {
+        if (!hasUsableTool(state.inventory, 'hoe')) throw new DecisionError('tidak punya cangkul untuk membajak tanah');
+        if (!state.inventory.some((i) => SEED_ITEMS.includes(i.name))) throw new DecisionError('tidak ada bibit untuk ditanam');
+      } else if (crop) {
         if (!crop.mature) throw new DecisionError(`tanaman di ${target.pos} belum siap panen`);
       } else if (land) {
         if (!state.inventory.some((i) => SEED_ITEMS.includes(i.name))) {

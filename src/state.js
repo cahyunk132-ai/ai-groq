@@ -4,6 +4,7 @@ import {
   BUILD_MATERIAL_NAME, BUILD_MATERIAL_MIN, CRAFT_CANDIDATES, MIN_TOOL_DURABILITY,
   HP_MAX, HP_CRITICAL_RATIO, HUNGER_LOW, HOSTILE_ENGAGE_DISTANCE,
   BLOCK_SCAN_RADIUS, BLOCK_SCAN_COUNT, RESOURCE_SCAN_RADIUS, RESOURCE_SCAN_COUNT,
+  TILLABLE_NAME,
 } from './constants.js';
 
 const round1 = (n) => Math.round(n * 10) / 10;
@@ -104,7 +105,14 @@ export function scanBlocks(bot, radius = BLOCK_SCAN_RADIUS) {
     .filter(({ pos }) => bot.blockAt(pos.offset(0, 1, 0))?.name === 'air')
     .map(({ pos, distance }) => ({ pos: toPos(pos), distance: round1(distance) }));
 
-  return { ores, crops, farmland };
+  // Tanah yang bisa dicangkul dan kosong di atasnya (untuk membuat farmland).
+  const tillableIds = blockIdsMatching(bot, TILLABLE_NAME);
+  const tillable = findNearest(bot, tillableIds, Math.min(maxDistance, 6), 16)
+    .filter(({ pos }) => bot.blockAt(pos.offset(0, 1, 0))?.name === 'air')
+    .slice(0, 6)
+    .map(({ pos, distance }) => ({ pos: toPos(pos), distance: round1(distance) }));
+
+  return { ores, crops, farmland, tillable };
 }
 
 /** Ringkasan blok yang bisa dikumpulkan (kayu, batu, pasir, dll) per jenis. */
@@ -230,6 +238,7 @@ export function buildState(bot, radius = 16, memory = null) {
       ores: scan.ores,
       crops: scan.crops,
       farmland: scan.farmland,
+      tillable: scan.tillable,
     },
     nearbyResources: scanResources(bot, radius).slice(0, 6), // ringkas agar hemat token
     craftable: listCraftable(bot),

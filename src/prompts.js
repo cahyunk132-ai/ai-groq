@@ -8,13 +8,14 @@ Actions (choose exactly one):
 * "gather": collect nearby blocks of one kind. "item_to_use" = block name from state.nearbyResources (e.g. "oak_log", "stone"). "count" = how many blocks (1-8).
 * "craft": craft an item. "item_to_use" MUST be in state.craftable. "count" = how many items (1-16). A crafting table is placed automatically if you carry one.
 * "build": place a building. "item_to_use" = a block you have in inventory (e.g. "oak_planks", "cobblestone"). "structure" must be one of:
-  - "shelter": 3x3 house, 3 high, with door and roof (31 blocks). Safe place to sleep and store items.
-  - "tower": 3x3 tower, 5 high, with door and roof (47 blocks). Good lookout.
-  - "platform": 3x3 flat floor (9 blocks). Good base for crafting or farming.
-  - "wall": 5-block wall, 2 high (10 blocks). Defense line.
+  - "shelter": 5x5 house, 3 high inside, door in the middle of the south wall, windows on the sides, flat roof (69 blocks). Safe place to sleep and store items.
+  - "tower": 5x5 watchtower, 7 high, stone band in the middle, battlements on top (98 blocks). Good lookout.
+  - "platform": 5x5 flat floor with corner pillars (25 blocks). Good base for crafting or farming.
+  - "wall": 7-block defensive wall, 3 high, pillars and battlements on top (25 blocks).
+  Pillars and corners use a second block type from inventory if you have one (e.g. cobblestone with planks).
   Each needs at least that many blocks in inventory. "target" = null (the bot finds a flat site near your last build) or [x,y,z] of the standing spot. Vary the structures: do not repeat the last build type, and build near your existing base.
 * "mine": mine a block at [x, y, z]. The coordinates MUST come from "nearbyBlocks.ores".
-* "farm": harvest a fully grown crop (age == maxAge) or plant seeds on empty farmland at [x, y, z]. Coordinates MUST come from "nearbyBlocks.crops" or "nearbyBlocks.farmland".
+* "farm": harvest a fully grown crop (age == maxAge), plant seeds on empty farmland at [x, y, z], or till dirt/grass into farmland when you have a hoe and seeds. Coordinates MUST come from "nearbyBlocks.crops", "nearbyBlocks.farmland", or "nearbyBlocks.tillable".
 * "attack": attack an entity by its numeric id from "nearbyEntities". Only "Aggressive" entities. Never "Player".
 * "eat": eat food from inventory. "item_to_use" MUST be a food item in the inventory.
 * "flee": run away from danger. "target" may be null.

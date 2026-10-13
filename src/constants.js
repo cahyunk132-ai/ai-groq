@@ -33,17 +33,22 @@ export const LOG_NAME = /(_log|_wood)$/;
 
 // Item yang dianggap bahan bangunan (dipakai untuk memutuskan kapan membangun).
 export const BUILD_MATERIAL_NAME = /(_planks|^cobblestone$|^dirt$|^stone$)/;
-export const BUILD_MATERIAL_MIN = 31; // cukup untuk satu shelter 3x3x4
+// Blok aksen (pilar/sudut) yang diambil dari inventaris selain blok utama.
+export const ACCENT_NAME = /(_planks|^cobblestone$|^stone$)/;
+export const BUILD_MATERIAL_MIN = 25; // cukup untuk satu platform 5x5
 
 // Item yang dicoba dibuat oleh bot. Hanya yang bisa dibuat sekarang yang dikirim ke Groq.
 export const CRAFT_CANDIDATES = [
   'crafting_table', 'stick', 'torch', 'chest', 'furnace', 'bread', 'shears',
-  'wooden_pickaxe', 'wooden_axe', 'wooden_shovel', 'wooden_sword',
-  'stone_pickaxe', 'stone_axe', 'stone_shovel', 'stone_sword',
+  'wooden_pickaxe', 'wooden_axe', 'wooden_shovel', 'wooden_sword', 'wooden_hoe',
+  'stone_pickaxe', 'stone_axe', 'stone_shovel', 'stone_sword', 'stone_hoe',
   'iron_pickaxe', 'iron_axe', 'iron_shovel', 'iron_sword',
   'oak_planks', 'spruce_planks', 'birch_planks', 'jungle_planks', 'acacia_planks',
   'dark_oak_planks', 'mangrove_planks', 'cherry_planks', 'bamboo_planks',
 ];
+
+// Tanah yang bisa dicangkul menjadi farmland (perlu cangkul dan bibit).
+export const TILLABLE_NAME = /^(dirt|grass_block)$/;
 
 export const MIN_TOOL_DURABILITY = 10; // alat di bawah ini dianggap hampir hancur
 export const HP_MAX = 20;
