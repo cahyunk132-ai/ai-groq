@@ -1,4 +1,4 @@
-// Konstanta game dan ambang batas keputusan.
+// Konstanta game dan ambang batas keputusan OmniBot.
 
 // Usia maksimum tanaman (saat siap panen) per jenis blok.
 export const CROP_MAX_AGE = {
@@ -19,25 +19,71 @@ export const AGGRESSIVE_MOBS = new Set([
 // Tipe entitas dari minecraft-data yang termasuk mob pasif.
 export const PASSIVE_TYPES = new Set(['animal', 'passive', 'water_creature', 'ambient']);
 
+// Prioritas ancaman mob (angka lebih besar = bahaya lebih tinggi)
+export const THREAT_PRIORITY = {
+  creeper: 10,
+  skeleton: 8,
+  witch: 7,
+  blaze: 7,
+  vindicator: 7,
+  phantom: 6,
+  pillager: 6,
+  spider: 5,
+  cave_spider: 5,
+  zombie: 4,
+  drowned: 4,
+  husk: 4,
+  zombified_piglin: 4,
+  enderman: 3,
+  slime: 2,
+  magma_cube: 2,
+};
+
 // Urutan prioritas ore (lebih tinggi = lebih berharga).
 export const ORE_PRIORITY = [
   'ancient_debris', 'diamond', 'emerald', 'gold', 'iron',
   'lapis', 'redstone', 'copper', 'coal',
 ];
 
-export const ORE_NAME = /_ore$|^ancient_debris$/;
+// Y-level optimal untuk menambang ore tertentu
+export const OPTIMAL_MINING_Y = {
+  ancient_debris: -15,
+  diamond: -59,
+  emerald: 100,
+  gold: -16,
+  iron: 16,
+  lapis: 0,
+  redstone: -59,
+  copper: 48,
+  coal: 96,
+};
 
-// Blok yang bisa dikumpulkan (dipakai untuk kayu dan bahan bangunan dasar).
+// Makanan untuk breeding hewan
+export const BREED_FOOD = {
+  cow: ['wheat'],
+  sheep: ['wheat'],
+  pig: ['carrot', 'potato', 'beetroot'],
+  chicken: ['wheat_seeds', 'beetroot_seeds', 'melon_seeds', 'pumpkin_seeds'],
+  rabbit: ['carrot', 'golden_carrot', 'dandelion'],
+};
+
+// Batas populasi ternak
+export const MAX_ANIMAL_POPULATION = {
+  cow: 10,
+  sheep: 10,
+  pig: 8,
+  chicken: 12,
+  rabbit: 6,
+};
+
+export const ORE_NAME = /_ore$|^ancient_debris$/;
 export const RESOURCE_NAME = /(_log|_wood)$|^(stone|cobblestone|sand|gravel|dirt|clay)$/;
 export const LOG_NAME = /(_log|_wood)$/;
-
-// Item yang dianggap bahan bangunan (dipakai untuk memutuskan kapan membangun).
 export const BUILD_MATERIAL_NAME = /(_planks|^cobblestone$|^dirt$|^stone$)/;
-export const BUILD_MATERIAL_MIN = 31; // cukup untuk satu shelter 3x3x4
+export const BUILD_MATERIAL_MIN = 31;
 
-// Item yang dicoba dibuat oleh bot. Hanya yang bisa dibuat sekarang yang dikirim ke Groq.
 export const CRAFT_CANDIDATES = [
-  'crafting_table', 'stick', 'torch', 'chest', 'furnace', 'bread', 'shears',
+  'crafting_table', 'stick', 'torch', 'chest', 'furnace', 'bread', 'shears', 'shield',
   'wooden_pickaxe', 'wooden_axe', 'wooden_shovel', 'wooden_sword',
   'stone_pickaxe', 'stone_axe', 'stone_shovel', 'stone_sword',
   'iron_pickaxe', 'iron_axe', 'iron_shovel', 'iron_sword',
@@ -54,6 +100,8 @@ export const BLOCK_SCAN_RADIUS = 8;
 export const BLOCK_SCAN_COUNT = 12;
 export const RESOURCE_SCAN_RADIUS = 16;
 export const RESOURCE_SCAN_COUNT = 64;
+
+export const TORCH_LIGHT_THRESHOLD = 7;
 
 /** Jenis alat yang dibutuhkan untuk menggali sebuah blok, atau null jika tidak perlu. */
 export function toolKindFor(blockName) {
