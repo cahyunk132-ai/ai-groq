@@ -1,7 +1,7 @@
 // ACT (validasi): memeriksa JSON dari Groq sebelum dieksekusi.
 // Keputusan yang tidak valid ditolak, bukan dijalankan apa adanya.
 import { HUNGER_LOW, SEED_ITEMS } from './constants.js';
-import { STRUCTURES } from './build.js';
+import { STRUCTURES, blocksNeeded } from './build.js';
 
 export const ACTIONS = Object.freeze([
   'explore', 'mine', 'attack', 'farm', 'eat', 'flee',
@@ -159,6 +159,10 @@ export function validateDecision(raw, state) {
       const structure = typeof raw.structure === 'string' ? raw.structure.trim().toLowerCase() : 'platform';
       if (!STRUCTURES.includes(structure)) {
         throw new DecisionError(`struktur tidak dikenal: ${JSON.stringify(raw.structure)}`);
+      }
+      const need = blocksNeeded(structure);
+      if (material.count < need) {
+        throw new DecisionError(`bahan ${itemName} kurang untuk ${structure}: butuh ${need}, punya ${material.count}`);
       }
       if (target?.pos) {
         const [px, py, pz] = state.position;

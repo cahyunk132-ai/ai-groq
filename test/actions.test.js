@@ -138,3 +138,9 @@ test('goal disimpan jika berupa teks', () => {
   assert.equal(validateDecision({ action: 'explore', goal: 'bangun rumah' }, richState).goal, 'bangun rumah');
   assert.equal(validateDecision({ action: 'explore', goal: 42 }, richState).goal, null);
 });
+
+test('build menolak jika bahan kurang untuk struktur', () => {
+  const few = { ...richState, inventory: [{ name: 'oak_planks', count: 20, isFood: false }] };
+  assert.throws(() => validateDecision({ action: 'build', item_to_use: 'oak_planks', structure: 'shelter' }, few), /butuh 31/);
+  assert.equal(validateDecision({ action: 'build', item_to_use: 'oak_planks', structure: 'wall' }, few).structure, 'wall');
+});

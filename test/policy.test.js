@@ -75,3 +75,11 @@ test('fallback: bangun shelter jika bahan cukup', () => {
   assert.equal(d.action, 'build');
   assert.equal(d.structure, 'shelter');
 });
+
+test('nextStructure: tidak mengulang jenis bangunan terakhir', async () => {
+  const { nextStructure } = await import('../src/policy.js');
+  assert.equal(nextStructure(100, null), 'shelter');
+  assert.equal(nextStructure(100, 'shelter'), 'tower');
+  assert.equal(nextStructure(10, 'shelter'), 'platform');
+  assert.equal(nextStructure(3, null), null);
+});

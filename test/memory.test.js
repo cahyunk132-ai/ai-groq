@@ -26,3 +26,16 @@ test('chat pending dibersihkan setelah diproses', () => {
   m.clearPendingChat();
   assert.equal(m.snapshot().pendingChat.length, 0);
 });
+
+test('buildAnchor menyimpan pusat bangunan terakhir', () => {
+  const m = new Memory();
+  assert.equal(m.buildAnchor(), null);
+  m.setBuildOrigin([10, 64, -3]);
+  assert.deepEqual(m.buildAnchor(), [10, 64, -3]);
+});
+
+test('recordAction menyimpan jenis bangunan sebagai detail', () => {
+  const m = new Memory();
+  m.recordAction({ action: 'build', result: 'ok', detail: 'tower' });
+  assert.equal(m.snapshot().recentActions[0].detail, 'tower');
+});

@@ -64,8 +64,14 @@ bot.once('spawn', () => {
     decide,
     act: async (d) => {
       if (d.goal) memory.setGoal(d.goal);
-      const result = await execute(bot, d);
-      memory.recordAction({ action: d.action, target: d.target, result: result?.message });
+      const result = await execute(bot, d, { anchor: memory.buildAnchor() });
+      if (result?.origin) memory.setBuildOrigin(result.origin);
+      memory.recordAction({
+        action: d.action,
+        target: d.target,
+        result: result?.message,
+        detail: result?.structure ?? null,
+      });
       memory.clearPendingChat();
       return result;
     },

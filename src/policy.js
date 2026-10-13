@@ -1,5 +1,6 @@
 // Kebijakan cadangan (berbasis aturan) dan penyaring keselamatan.
 // Dipakai saat Groq gagal/tidak valid, dan untuk menimpa keputusan berbahaya.
+import { STRUCTURES, blocksNeeded } from './build.js';
 import {
   HP_CRITICAL_RATIO, HOSTILE_ENGAGE_DISTANCE, HOSTILE_FLEE_DISTANCE, HUNGER_LOW, HP_MAX,
   SEED_ITEMS, LOG_NAME, BUILD_MATERIAL_NAME, BUILD_MATERIAL_MIN,
@@ -16,6 +17,15 @@ const decision = (action, extra = {}) => ({
   say: null,
   goal: extra.goal ?? null,
 });
+
+/**
+ * Struktur berikutnya yang bahannya cukup dan tidak sama dengan bangunan terakhir.
+ * Urutan dimulai dari yang paling berguna untuk perlindungan.
+ */
+export function nextStructure(materialCount, lastStructure) {
+  const order = ['shelter', 'tower', 'platform', 'wall'].filter((s) => STRUCTURES.includes(s));
+  return order.find((s) => s !== lastStructure && materialCount >= blocksNeeded(s)) || null;
+}
 
 function bestFood(state) {
   return state.inventory.find((i) => i.isFood) || null;
@@ -75,7 +85,15 @@ export function fallbackDecision(state) {
     const material = state.inventory
       .filter((i) => BUILD_MATERIAL_NAME.test(i.name))
       .sort((a, b) => b.count - a.count)[0];
-    return decision('build', { thought: 'Bahan cukup, bangun tempat berlindung.', item_to_use: material.name, structure: 'shelter' });
+    const lastBuild = (state.recentActions || []).filter((a) => a.action === 'build').pop();
+    const structure = nextStructure(material.count, lastBuild?.detail ?? null);
+    if (structure) {
+      return decision('build', {
+        thought: `Bahan cukup, bangun ${structure} dekat bangunan sebelumnya.`,
+        item_to_use: material.name,
+        structure,
+      });
+    }
   }
 
   if (state.nearbyBlocks.ores.length) {

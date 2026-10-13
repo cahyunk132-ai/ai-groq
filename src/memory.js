@@ -9,13 +9,23 @@ export class Memory {
     this.recentActions = [];
     this.pendingChat = [];
     this.goal = null;
+    this.buildOrigin = null; // pusat bangunan terakhir; bangunan baru didekatkan ke sini
   }
 
-  recordAction({ action, target = null, result = '' }) {
-    this.recentActions.push({ action, target, result: String(result).slice(0, 160) });
+  recordAction({ action, target = null, result = '', detail = null }) {
+    this.recentActions.push({ action, target, result: String(result).slice(0, 160), detail });
     if (this.recentActions.length > MAX_ACTIONS) {
       this.recentActions.splice(0, this.recentActions.length - MAX_ACTIONS);
     }
+  }
+
+  setBuildOrigin(origin) {
+    if (Array.isArray(origin) && origin.length === 3) this.buildOrigin = origin.slice();
+  }
+
+  /** Titik acuan untuk bangunan berikutnya, atau null jika belum pernah membangun. */
+  buildAnchor() {
+    return this.buildOrigin ? this.buildOrigin.slice() : null;
   }
 
   setGoal(goal) {

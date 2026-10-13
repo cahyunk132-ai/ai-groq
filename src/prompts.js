@@ -7,7 +7,12 @@ You MUST output ONLY valid JSON, with no extra text.
 Actions (choose exactly one):
 * "gather": collect nearby blocks of one kind. "item_to_use" = block name from state.nearbyResources (e.g. "oak_log", "stone"). "count" = how many blocks (1-8).
 * "craft": craft an item. "item_to_use" MUST be in state.craftable. "count" = how many items (1-16). A crafting table is placed automatically if you carry one.
-* "build": place building materials. "item_to_use" = a block you have in inventory (e.g. "oak_planks", "cobblestone"). "structure" = "platform" (3x3 floor) or "shelter" (3x3 walls, 3 high, with a door, and roof, about 31 blocks). "target" = [x,y,z] of the center standing spot, or null to build 3 blocks east of you.
+* "build": place a building. "item_to_use" = a block you have in inventory (e.g. "oak_planks", "cobblestone"). "structure" must be one of:
+  - "shelter": 3x3 house, 3 high, with door and roof (31 blocks). Safe place to sleep and store items.
+  - "tower": 3x3 tower, 5 high, with door and roof (47 blocks). Good lookout.
+  - "platform": 3x3 flat floor (9 blocks). Good base for crafting or farming.
+  - "wall": 5-block wall, 2 high (10 blocks). Defense line.
+  Each needs at least that many blocks in inventory. "target" = null (the bot finds a flat site near your last build) or [x,y,z] of the standing spot. Vary the structures: do not repeat the last build type, and build near your existing base.
 * "mine": mine a block at [x, y, z]. The coordinates MUST come from "nearbyBlocks.ores".
 * "farm": harvest a fully grown crop (age == maxAge) or plant seeds on empty farmland at [x, y, z]. Coordinates MUST come from "nearbyBlocks.crops" or "nearbyBlocks.farmland".
 * "attack": attack an entity by its numeric id from "nearbyEntities". Only "Aggressive" entities. Never "Player".
@@ -27,7 +32,7 @@ Priorities:
 3. Eat when hunger is below 14/20 and food is in inventory.
 4. Tools: if you have no pickaxe, craft one. Keep wood and stone for tools.
 5. Farm mature crops and replant seeds.
-6. Build a shelter once you have about 31 building blocks.
+6. Build when you have enough blocks: a shelter first, then a platform, wall, or tower. Build near earlier builds, not all over the map.
 7. Mine valuable ore (diamond > iron > coal) from "nearbyBlocks.ores".
 8. Answer players when "pendingChat" is not empty.
 

@@ -1,12 +1,19 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildCells, FACE_DIRECTIONS } from '../src/build.js';
+import { buildCells, footprintOf, FACE_DIRECTIONS } from '../src/build.js';
 import { pickReference, isSolid } from '../src/executor.js';
 
-test('platform: lantai 3x3 di bawah origin', () => {
+test('platform: lantai 3x3 di level origin, di atas tanah y-1', () => {
   const cells = buildCells('platform', [10, 64, 10]);
   assert.equal(cells.length, 9);
-  assert.ok(cells.every(([, y]) => y === 63));
+  assert.ok(cells.every(([, y]) => y === 64));
+  assert.equal(footprintOf('platform', [10, 64, 10]).length, 9);
+});
+
+test('tower dan wall: jumlah blok dan bentuk', () => {
+  assert.equal(buildCells('tower', [0, 64, 0]).length, 47);
+  assert.equal(buildCells('wall', [0, 64, 0]).length, 10);
+  assert.equal(footprintOf('wall', [0, 64, 0]).length, 5);
 });
 
 test('shelter: 31 blok (dinding dengan pintu, atap 3x3)', () => {

@@ -5,6 +5,7 @@ import { Vec3 } from 'vec3';
 import { CROP_MAX_AGE, SEED_ITEMS, HOSTILE_FLEE_DISTANCE, toolKindFor } from './constants.js';
 import { cropAge } from './state.js';
 import { buildCells, FACE_DIRECTIONS } from './build.js';
+import { findSite, isValidSite } from './site.js';
 
 const { goals } = pathfinderPkg;
 
@@ -180,21 +181,37 @@ async function doCraft(bot, d) {
   return { message: `membuat ${d.item_to_use} x${times * recipe.result.count}` };
 }
 
-/** Membangun struktur di sekitar origin. Blok yang tidak punya tumpuan dilewati. */
-async function doBuild(bot, d) {
+/**
+ * Membangun satu struktur. Jika AI tidak memberi target, bot mencari lahan datar
+ * di dekat bangunan terakhir (atau di dekat dirinya). Blok yang tidak punya tumpuan dilewati.
+ */
+async function doBuild(bot, d, ctx = {}) {
+  const structure = d.structure || 'platform';
+  const at = (x, y, z) => bot.blockAt(new Vec3(x, y, z));
+  const getBlock = (x, y, z) => at(x, y, z);
   const p = bot.entity.position;
-  const origin = d.target ?? [Math.floor(p.x) + 3, Math.floor(p.y), Math.floor(p.z)];
-  const cells = buildCells(d.structure || 'platform', origin);
-  const getBlock = (c) => bot.blockAt(new Vec3(c[0], c[1], c[2]));
+  const from = [Math.floor(p.x), Math.floor(p.y), Math.floor(p.z)];
 
+  let origin = d.target;
+  if (origin) {
+    if (!isValidSite(getBlock, origin, structure, from)) {
+      throw new Error(`lokasi ${origin} tidak cocok untuk ${structure} (tanah tidak rata atau ruang terhalang)`);
+    }
+  } else {
+    origin = findSite({ getBlock, from, structure, anchor: ctx.anchor ?? null });
+    if (!origin) throw new Error(`tidak ada lahan datar untuk ${structure} di dekat sini`);
+  }
+
+  const cells = buildCells(structure, origin);
+  const getCell = (c) => at(c[0], c[1], c[2]);
   let placed = 0;
   let attempted = 0;
   for (const cell of cells) {
     if (attempted >= MAX_PLACEMENTS) break;
     if (!bot.inventory.items().some((i) => i.name === d.item_to_use)) break;
-    const here = getBlock(cell);
+    const here = getCell(cell);
     if (here && here.name !== 'air') continue;
-    if (!pickReference(getBlock, cell)) continue;
+    if (!pickReference(getCell, cell)) continue;
 
     attempted += 1;
     if (bot.entity.position.distanceTo(new Vec3(...cell)) > 4) {
@@ -207,7 +224,11 @@ async function doBuild(bot, d) {
     }
   }
   if (placed === 0) throw new Error(`tidak ada blok yang berhasil dipasang (${cells.length} sel)`);
-  return { message: `membangun ${d.structure}: ${placed}/${cells.length} blok` };
+  return {
+    message: `membangun ${structure} di ${origin}: ${placed}/${cells.length} blok`,
+    origin,
+    structure,
+  };
 }
 
 async function doAttack(bot, d) {
@@ -322,7 +343,7 @@ export function say(bot, text) {
  * Menjalankan satu keputusan. Error ditangkap dan dikembalikan sebagai pesan
  * agar loop tidak berhenti.
  */
-export async function execute(bot, d) {
+export async function execute(bot, d, ctx = {}) {
   say(bot, d.say);
   try {
     switch (d.action) {
@@ -334,7 +355,7 @@ export async function execute(bot, d) {
       case 'flee': return await doFlee(bot, d);
       case 'gather': return await doGather(bot, d);
       case 'craft': return await doCraft(bot, d);
-      case 'build': return await doBuild(bot, d);
+      case 'build': return await doBuild(bot, d, ctx);
       case 'idle': return await doIdle(bot, d);
       case 'chat': return { message: `bilang: ${d.say}` };
       default: throw new Error(`aksi tidak dikenal: ${d.action}`);
