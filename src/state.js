@@ -1,7 +1,7 @@
 // OBSERVE + STATE PARSER: mengubah kondisi bot menjadi objek JSON ringkas untuk Groq.
 import {
   AGGRESSIVE_MOBS, PASSIVE_TYPES, CROP_MAX_AGE, ORE_NAME, ORE_PRIORITY, RESOURCE_NAME, LOG_NAME,
-  BUILD_MATERIAL_NAME, BUILD_MATERIAL_MIN, CRAFT_CANDIDATES,
+  BUILD_MATERIAL_NAME, BUILD_MATERIAL_MIN, CRAFT_CANDIDATES, MIN_TOOL_DURABILITY,
   HP_MAX, HP_CRITICAL_RATIO, HUNGER_LOW, HOSTILE_ENGAGE_DISTANCE,
   BLOCK_SCAN_RADIUS, BLOCK_SCAN_COUNT, RESOURCE_SCAN_RADIUS, RESOURCE_SCAN_COUNT,
 } from './constants.js';
@@ -161,6 +161,12 @@ export function listCraftable(bot) {
   return names;
 }
 
+/** Apakah ada alat jenis `kind` (pickaxe, axe, ...) yang masih layak pakai. */
+export function hasUsableTool(inventory, kind) {
+  return inventory.some((i) => i.name.endsWith(`_${kind}`)
+    && (i.durability === undefined || i.durability >= MIN_TOOL_DURABILITY));
+}
+
 /** Total jumlah item yang namanya cocok dengan pola. */
 function countMatching(inventory, pattern) {
   return inventory
@@ -179,7 +185,7 @@ export function currentTask(state) {
   const hasFood = state.inventory.some((i) => i.isFood);
   if (state.hunger < HUNGER_LOW && hasFood) return 'Eating';
 
-  const hasPickaxe = state.inventory.some((i) => i.name.endsWith('_pickaxe'));
+  const hasPickaxe = hasUsableTool(state.inventory, 'pickaxe');
   if (!hasPickaxe && (state.craftable || []).some((n) => n.endsWith('_pickaxe'))) return 'Crafting';
 
   const { crops, farmland } = state.nearbyBlocks;
@@ -225,7 +231,7 @@ export function buildState(bot, radius = 16, memory = null) {
       crops: scan.crops,
       farmland: scan.farmland,
     },
-    nearbyResources: scanResources(bot, radius),
+    nearbyResources: scanResources(bot, radius).slice(0, 6), // ringkas agar hemat token
     craftable: listCraftable(bot),
     currentGoal: mem.currentGoal,
     recentActions: mem.recentActions,

@@ -49,7 +49,7 @@ test('gpt-oss memakai reasoning_effort low dan budget token yang cukup', async (
   };
   await askGroq([], { apiKey: 'k', model: 'openai/gpt-oss-120b', fetchImpl });
   assert.equal(body.reasoning_effort, 'low');
-  assert.ok(body.max_tokens >= 2048);
+  assert.ok(body.max_tokens >= 512);
 });
 
 test('model non-gpt-oss tidak mengirim reasoning_effort', async () => {

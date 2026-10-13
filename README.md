@@ -67,7 +67,7 @@ Variabel penting di `.env`:
 | `GROQ_MODEL`      | `openai/gpt-oss-120b`    | Model Groq. `llama-3.3-70b-versatile` sudah dihentikan Groq pada 2026-08-16 |
 | `MC_HOST`/`MC_PORT` | `localhost` / `25565`  | Alamat server                                                |
 | `MC_AUTH`         | `offline`                | `offline` untuk server non-premium/LAN, `microsoft` untuk akun resmi |
-| `LOOP_TICK_MS`    | `3000`                   | Jeda antar keputusan. Free tier Groq dibatasi 30 request/menit, jadi jangan lebih kecil dari 2000 |
+| `LOOP_TICK_MS`    | `30000`                  | Jeda antar keputusan. Free tier Groq gpt-oss hanya 8000 TPM; `max_tokens` ikut terhitung, jadi tick kecil langsung kena 429 |
 
 ## Batasan yang perlu diketahui
 

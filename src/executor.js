@@ -2,7 +2,7 @@
 // Pathfinding memakai mineflayer-pathfinder; AI hanya memilih apa yang dilakukan, bukan cara bergerak.
 import pathfinderPkg from 'mineflayer-pathfinder';
 import { Vec3 } from 'vec3';
-import { CROP_MAX_AGE, SEED_ITEMS, HOSTILE_FLEE_DISTANCE, toolKindFor } from './constants.js';
+import { CROP_MAX_AGE, SEED_ITEMS, HOSTILE_FLEE_DISTANCE, MIN_TOOL_DURABILITY, toolKindFor } from './constants.js';
 import { cropAge } from './state.js';
 import { buildCells, FACE_DIRECTIONS } from './build.js';
 import { findSite, isValidSite } from './site.js';
@@ -36,7 +36,9 @@ export function bestTool(bot, kind) {
     const tier = TOOL_TIERS.findIndex((t) => i.name.startsWith(`${t}_`));
     return tier === -1 ? TOOL_TIERS.length : tier;
   };
-  return tools.sort((a, b) => rank(a) - rank(b))[0] || null;
+  // Alat yang masih layak pakai diutamakan, lalu tingkat material.
+  const broken = (i) => (i.maxDurability && i.maxDurability - (i.durabilityUsed || 0) < MIN_TOOL_DURABILITY ? 1 : 0);
+  return tools.sort((a, b) => broken(a) - broken(b) || rank(a) - rank(b))[0] || null;
 }
 
 async function equipTool(bot, kind) {
@@ -106,7 +108,7 @@ async function doMine(bot, d) {
   if (!block || block.name === 'air') throw new Error(`blok di ${d.target} tidak ada`);
   const pick = bestTool(bot, 'pickaxe');
   if (!pick) throw new Error('tidak punya pickaxe');
-  if (pick.maxDurability && pick.maxDurability - (pick.durabilityUsed || 0) < 10) {
+  if (pick.maxDurability && pick.maxDurability - (pick.durabilityUsed || 0) < MIN_TOOL_DURABILITY) {
     throw new Error('pickaxe hampir hancur, perlu diganti');
   }
   await moveNear(bot, d.target, 3);

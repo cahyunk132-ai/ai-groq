@@ -5,6 +5,7 @@ import { validateDecision, parseTarget, DecisionError } from '../src/actions.js'
 const state = {
   health: 10, maxHealth: 20, hunger: 15,
   inventory: [
+    { name: 'iron_pickaxe', isFood: false, durability: 500 },
     { name: 'iron_sword', isFood: false },
     { name: 'baked_potato', isFood: true },
     { name: 'wheat_seeds', isFood: false },
@@ -143,4 +144,9 @@ test('build menolak jika bahan kurang untuk struktur', () => {
   const few = { ...richState, inventory: [{ name: 'oak_planks', count: 20, isFood: false }] };
   assert.throws(() => validateDecision({ action: 'build', item_to_use: 'oak_planks', structure: 'shelter' }, few), /butuh 31/);
   assert.equal(validateDecision({ action: 'build', item_to_use: 'oak_planks', structure: 'wall' }, few).structure, 'wall');
+});
+
+test('mine ditolak jika pickaxe hampir hancur', () => {
+  const broken = { ...state, inventory: [{ name: 'iron_pickaxe', isFood: false, durability: 4 }] };
+  assert.throws(() => validateDecision({ action: 'mine', target: [120, -54, 88] }, broken), /layak pakai/);
 });

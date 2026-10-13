@@ -21,9 +21,10 @@ test('fallback: musuh agresif jauh tapi dalam radius => attack', () => {
 });
 
 test('fallback: prioritas farm > mine > explore', () => {
-  const crop = base({ nearbyBlocks: { ores: [{ pos: [1, 1, 1] }], crops: [{ pos: [2, 2, 2], mature: true }], farmland: [] } });
+  const pick = [{ name: 'stone_pickaxe', count: 1, durability: 100 }];
+  const crop = base({ inventory: pick, nearbyBlocks: { ores: [{ pos: [1, 1, 1] }], crops: [{ pos: [2, 2, 2], mature: true }], farmland: [] } });
   assert.equal(fallbackDecision(crop).action, 'farm');
-  const ore = base({ nearbyBlocks: { ores: [{ pos: [1, 1, 1] }], crops: [], farmland: [] } });
+  const ore = base({ inventory: pick, nearbyBlocks: { ores: [{ pos: [1, 1, 1] }], crops: [], farmland: [] } });
   assert.equal(fallbackDecision(ore).action, 'mine');
   assert.equal(fallbackDecision(base()).action, 'explore');
 });
@@ -82,4 +83,15 @@ test('nextStructure: tidak mengulang jenis bangunan terakhir', async () => {
   assert.equal(nextStructure(100, 'shelter'), 'tower');
   assert.equal(nextStructure(10, 'shelter'), 'platform');
   assert.equal(nextStructure(3, null), null);
+});
+
+test('fallback: pickaxe hampir hancur memicu craft, bukan mine', () => {
+  const s = base({
+    inventory: [{ name: 'stone_pickaxe', count: 1, durability: 3 }],
+    craftable: ['wooden_pickaxe'],
+    nearbyBlocks: { ores: [{ pos: [1, 1, 1] }], crops: [], farmland: [] },
+  });
+  const d = fallbackDecision(s);
+  assert.equal(d.action, 'craft');
+  assert.equal(d.item_to_use, 'wooden_pickaxe');
 });

@@ -1,6 +1,7 @@
 // ACT (validasi): memeriksa JSON dari Groq sebelum dieksekusi.
 // Keputusan yang tidak valid ditolak, bukan dijalankan apa adanya.
 import { HUNGER_LOW, SEED_ITEMS } from './constants.js';
+import { hasUsableTool } from './state.js';
 import { STRUCTURES, blocksNeeded } from './build.js';
 
 export const ACTIONS = Object.freeze([
@@ -82,6 +83,9 @@ export function validateDecision(raw, state) {
 
     case 'mine': {
       if (!target?.pos) throw new DecisionError('mine butuh target [x, y, z]');
+      if (!hasUsableTool(state.inventory, 'pickaxe')) {
+        throw new DecisionError('tidak ada pickaxe yang layak pakai (kosong atau hampir hancur)');
+      }
       const ore = state.nearbyBlocks.ores.find((o) => samePos(o.pos, target.pos));
       if (!ore) throw new DecisionError(`tidak ada ore di ${target.pos}`);
       decision.target = target.pos;

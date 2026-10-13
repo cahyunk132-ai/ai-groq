@@ -45,6 +45,7 @@ export const CRAFT_CANDIDATES = [
   'dark_oak_planks', 'mangrove_planks', 'cherry_planks', 'bamboo_planks',
 ];
 
+export const MIN_TOOL_DURABILITY = 10; // alat di bawah ini dianggap hampir hancur
 export const HP_MAX = 20;
 export const HP_CRITICAL_RATIO = 0.3;     // di bawah 30% => kondisi kritis
 export const HUNGER_LOW = 14;             // di bawah 14/20 => lapar

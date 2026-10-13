@@ -5,6 +5,7 @@ import {
   HP_CRITICAL_RATIO, HOSTILE_ENGAGE_DISTANCE, HOSTILE_FLEE_DISTANCE, HUNGER_LOW, HP_MAX,
   SEED_ITEMS, LOG_NAME, BUILD_MATERIAL_NAME, BUILD_MATERIAL_MIN,
 } from './constants.js';
+import { hasUsableTool } from './state.js';
 
 const decision = (action, extra = {}) => ({
   thought: extra.thought || '',
@@ -67,7 +68,7 @@ export function fallbackDecision(state) {
     return decision('farm', { thought: 'Ada farmland kosong dan bibit.', target: state.nearbyBlocks.farmland[0].pos });
   }
 
-  const pickaxeMissing = !state.inventory.some((i) => i.name.endsWith('_pickaxe'));
+  const pickaxeMissing = !hasUsableTool(state.inventory, 'pickaxe');
   const pickaxe = craftable.find((n) => n.endsWith('_pickaxe'));
   if (pickaxeMissing && pickaxe) {
     return decision('craft', { thought: 'Belum punya pickaxe, buat sekarang.', item_to_use: pickaxe });
@@ -96,7 +97,7 @@ export function fallbackDecision(state) {
     }
   }
 
-  if (state.nearbyBlocks.ores.length) {
+  if (state.nearbyBlocks.ores.length && !pickaxeMissing) {
     return decision('mine', { thought: 'Ore terdekat dengan prioritas tertinggi.', target: state.nearbyBlocks.ores[0].pos });
   }
   const stoneSource = resources.find((r) => r.name === 'stone' || r.name === 'cobblestone');

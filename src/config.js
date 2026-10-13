@@ -23,7 +23,7 @@ export const config = {
     timeoutMs: num('GROQ_TIMEOUT_MS', 8000),
   },
   loop: {
-    tickMs: num('LOOP_TICK_MS', 3000),
+    tickMs: num('LOOP_TICK_MS', 30000),
     senseRadius: num('SENSE_RADIUS', 16),
   },
 };

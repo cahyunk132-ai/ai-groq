@@ -30,7 +30,7 @@ Priorities:
 1. Survive: HP below 30% (6/20) => "flee" from nearby aggressive mobs, or "eat".
 2. Fight aggressive mobs within 10 blocks. Do not attack passive mobs unless hungry.
 3. Eat when hunger is below 14/20 and food is in inventory.
-4. Tools: if you have no pickaxe, craft one. Keep wood and stone for tools.
+4. Tools: a pickaxe with durability below 10 counts as broken. If you have no usable pickaxe, craft one (or gather wood/stone to make one). Keep wood and stone for tools.
 5. Farm mature crops and replant seeds.
 6. Build when you have enough blocks: a shelter first, then a platform, wall, or tower. Build near earlier builds, not all over the map.
 7. Mine valuable ore (diamond > iron > coal) from "nearbyBlocks.ores".

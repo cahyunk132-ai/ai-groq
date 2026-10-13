@@ -1,8 +1,8 @@
 // Klien Groq (endpoint kompatibel OpenAI). Tidak butuh SDK tambahan; memakai fetch bawaan Node.
 import { config as defaultConfig } from './config.js';
 
-/** Budget token termasuk token reasoning (untuk model gpt-oss, reasoning ikut terhitung). */
-export const MAX_COMPLETION_TOKENS = 4096;
+/** Budget token termasuk token reasoning. Dibuat secukupnya agar tidak kena limit TPM. */
+export const MAX_COMPLETION_TOKENS = 1024; // Groq menghitung max_tokens ke kuota TPM
 
 /** Mengurai teks menjadi JSON. Menerima JSON yang dibungkus teks tambahan. */
 export function parseJsonLoose(text) {
