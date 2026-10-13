@@ -1,0 +1,32 @@
+// DECIDE: menggabungkan state -> Groq -> validasi -> penyaring keselamatan.
+import { SYSTEM_PROMPT, buildUserPrompt } from './prompts.js';
+import { validateDecision } from './actions.js';
+import { fallbackDecision, applySafetyOverrides } from './policy.js';
+import { askGroq } from './groq.js';
+
+/**
+ * Membuat fungsi decide(state) yang selalu mengembalikan keputusan yang bisa dijalankan.
+ * @param {object} deps
+ * @param {Function} [deps.ask] fungsi pemanggil LLM (default: askGroq)
+ * @param {Function} [deps.log]
+ */
+export function createBrain({ ask = askGroq, log = console.log } = {}) {
+  return async function decide(state) {
+    let decision;
+    let source = 'groq';
+    try {
+      const raw = await ask([
+        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'user', content: buildUserPrompt(state) },
+      ]);
+      decision = validateDecision(raw, state);
+    } catch (err) {
+      source = 'fallback';
+      log(`[brain] Groq gagal/tidak valid (${err.message}); memakai kebijakan cadangan`);
+      decision = fallbackDecision(state);
+    }
+    const safe = applySafetyOverrides(decision, state);
+    if (safe !== decision) source += '+override';
+    return { ...safe, source };
+  };
+}
