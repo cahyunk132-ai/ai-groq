@@ -13,7 +13,7 @@ const MOVE_TIMEOUT_MS = 15000;
 const ATTACK_TIMEOUT_MS = 8000;
 const FLEE_DISTANCE = 12;
 const MAX_CHAT_LENGTH = 200;
-const MAX_PLACEMENTS = 40;
+const MAX_PLACEMENTS = 80; // cukup untuk struktur terbesar (tower 47 blok)
 const TOOL_TIERS = ['netherite', 'diamond', 'iron', 'stone', 'golden', 'wooden'];
 const NON_SOLID = new Set(['air', 'cave_air', 'void_air', 'water', 'lava']);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
