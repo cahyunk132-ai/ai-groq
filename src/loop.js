@@ -16,6 +16,10 @@ export async function runOodaLoop({ observe, decide, act, tickMs, signal, log = 
     tick += 1;
     try {
       const state = observe();                              // Observe + Orient
+      if (!state) {                                         // belum siap (mati / data belum ada)
+        await sleep(tickMs, undefined, { signal }).catch(() => {});
+        continue;
+      }
       const decision = await decide(state);                 // Decide
       log(`[tick ${tick}] task=${state.currentTaskPriority} hp=${state.health} food=${state.hunger} -> ${decision.action} ${JSON.stringify(decision.target)} (${decision.source}) | ${decision.thought}`);
       if (signal?.aborted) break;

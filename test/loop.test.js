@@ -33,3 +33,22 @@ test('error di satu tick tidak menghentikan loop', async () => {
   });
   assert.equal(calls, 2);
 });
+
+test('tick dilewati saat observe mengembalikan null (bot belum siap)', async () => {
+  const controller = new AbortController();
+  let observed = 0;
+  let decided = 0;
+  await runOodaLoop({
+    observe: () => {
+      observed += 1;
+      return observed < 3 ? null : { currentTaskPriority: 'Exploring', health: 20, hunger: 20 };
+    },
+    decide: async () => { decided += 1; controller.abort(); return { action: 'explore', source: 't', thought: '' }; },
+    act: async () => ({}),
+    tickMs: 1,
+    signal: controller.signal,
+    log: () => {},
+  });
+  assert.equal(decided, 1);
+  assert.equal(observed, 3);
+});

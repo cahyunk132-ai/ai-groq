@@ -14,6 +14,11 @@ if (!config.groq.apiKey) {
   process.exit(1);
 }
 
+/** Bot siap jika sudah menerima data HP dari server dan HP-nya di atas 0. */
+function isReady(bot) {
+  return typeof bot.health === 'number' && bot.health > 0 && bot.isAlive !== false;
+}
+
 const log = (msg) => console.log(`${new Date().toISOString()} ${msg}`);
 const controller = new AbortController();
 
@@ -34,7 +39,8 @@ bot.once('spawn', () => {
   bot.pathfinder.setMovements(new Movements(bot));
   log(`Bot "${bot.username}" masuk ke ${config.mc.host}:${config.mc.port}`);
   runOodaLoop({
-    observe: () => buildState(bot, config.loop.senseRadius),
+    // Jangan mengambil keputusan saat bot belum menerima data HP atau sedang mati.
+    observe: () => (isReady(bot) ? buildState(bot, config.loop.senseRadius) : null),
     decide,
     act: (d) => execute(bot, d),
     tickMs: config.loop.tickMs,
