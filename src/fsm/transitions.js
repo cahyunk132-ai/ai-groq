@@ -134,13 +134,29 @@ export function buildTransitions(sensors = null) {
       },
     },
 
+    // P7.5: Rekan bot atau pemain terdeteksi dekat (< radius sapaan) & cooldown sapaan terpenuhi => Encounter
+    {
+      priority: 7.5,
+      target: 'encounter',
+      pushStack: true,
+      condition: (ctx) => {
+        const threat = getSensors(ctx).threat;
+        if (!threat || typeof threat.nearestPlayer !== 'function') return false;
+        const radius = ctx?.config?.social?.encounterRadius ?? 6;
+        const cooldownMs = ctx?.config?.social?.encounterCooldownMs ?? 60000;
+        const player = threat.nearestPlayer(radius);
+        if (!player) return false;
+        return Boolean(ctx?.memory?.canEncounter?.(player.username, cooldownMs));
+      },
+    },
+
     // P8: Pesan obrolan pemain belum dijawab => Socializing
     {
       priority: 8,
       target: 'socializing',
       pushStack: false,
       condition: (ctx) => {
-        return Boolean(ctx?.memory?.pendingChat);
+        return (ctx?.memory?.pendingChat?.length ?? 0) > 0;
       },
     },
 
@@ -150,8 +166,9 @@ export function buildTransitions(sensors = null) {
       target: 'exploring',
       pushStack: false,
       condition: (ctx) => {
-        // Eksplorasi saat idle dan tidak ada antrean
-        return !ctx?.taskQueue?.hasTask?.() && !ctx?.memory?.pendingChat;
+        // Eksplorasi saat idle dan tidak ada antrean atau chat belum dijawab
+        const hasPendingChat = (ctx?.memory?.pendingChat?.length ?? 0) > 0;
+        return !ctx?.taskQueue?.hasTask?.() && !hasPendingChat;
       },
     },
   ];

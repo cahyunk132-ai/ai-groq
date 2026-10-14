@@ -13,8 +13,20 @@ export const config = {
     host: process.env.MC_HOST || 'localhost',
     port: num('MC_PORT', 25565),
     username: process.env.MC_USERNAME || 'GroqBot',
+    username2: process.env.MC_USERNAME_2 || 'bot_admin',
     auth: process.env.MC_AUTH || 'offline',
     version: process.env.MC_VERSION || undefined,
+  },
+  social: {
+    friendBots: (process.env.FRIEND_BOTS || 'bot_admin,bot_adminv2')
+      .split(',')
+      .map((s) => s.trim().toLowerCase())
+      .filter(Boolean),
+    interactWithPlayers: process.env.INTERACT_WITH_PLAYERS !== 'false',
+    encounterRadius: num('ENCOUNTER_RADIUS', 6),
+    encounterCooldownMs: num('ENCOUNTER_COOLDOWN_MS', 60000),
+    chatCooldownMs: num('CHAT_COOLDOWN_MS', 10000),
+    friendChatCooldownMs: num('FRIEND_CHAT_COOLDOWN_MS', 45000),
   },
   groq: {
     apiKey: process.env.GROQ_API_KEY || '',

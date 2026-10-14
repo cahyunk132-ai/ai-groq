@@ -23,7 +23,11 @@ export class ThreatSensor {
 
     for (const entity of Object.values(this.bot.entities)) {
       if (!entity || entity === this.bot.entity || !entity.position) continue;
-      const dist = entity.position.distanceTo(me);
+      const dist = typeof entity.position.distanceTo === 'function'
+        ? entity.position.distanceTo(me)
+        : (typeof me.distanceTo === 'function'
+            ? me.distanceTo(entity.position)
+            : Math.hypot((entity.position.x || 0) - (me.x || 0), (entity.position.y || 0) - (me.y || 0), (entity.position.z || 0) - (me.z || 0)));
       if (dist > radius) continue;
 
       if (entity.type === 'player') {
@@ -50,6 +54,7 @@ export class ThreatSensor {
 
     // Urutkan: prioritas bahaya tertinggi dulu, lalu jarak terdekat
     this.hostiles.sort((a, b) => b.priority - a.priority || a.distance - b.distance);
+    this.players.sort((a, b) => a.distance - b.distance);
   }
 
   /**
@@ -59,6 +64,34 @@ export class ThreatSensor {
    */
   nearestHostile(maxDist = 10) {
     return this.hostiles.find((h) => h.distance <= maxDist) ?? null;
+  }
+
+  /**
+   * Menemukan pemain atau bot lain terdekat dalam batas jarak tertentu.
+   * @param {number} maxDist
+   * @returns {{ entity: object, distance: number, name: string, username?: string } | null}
+   */
+  nearestPlayer(maxDist = 6) {
+    const found = this.players.find((p) => p.distance <= maxDist);
+    if (!found) return null;
+    return {
+      entity: found.entity,
+      distance: found.distance,
+      name: found.name,
+      username: found.entity.username || found.name,
+    };
+  }
+
+  /**
+   * Memeriksa apakah suatu username merupakan bot rekan.
+   * @param {string} username
+   * @param {string[]} friendList
+   * @returns {boolean}
+   */
+  isFriendBot(username, friendList = []) {
+    if (!username) return false;
+    const u = String(username).toLowerCase();
+    return friendList.some((f) => f.toLowerCase() === u);
   }
 
   /**

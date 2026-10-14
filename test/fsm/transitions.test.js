@@ -78,13 +78,42 @@ test('buildTransitions evaluates conditions correctly based on priorities', () =
     true
   );
 
+  // Test P7.5: encounter
+  const p75 = transitions.find((t) => t.priority === 7.5);
+  assert.ok(p75);
+  assert.equal(
+    p75.condition({
+      sensors: {
+        threat: { nearestPlayer: () => ({ username: 'bot_admin' }) },
+      },
+      memory: { canEncounter: () => true },
+    }),
+    true
+  );
+  assert.equal(
+    p75.condition({
+      sensors: {
+        threat: { nearestPlayer: () => ({ username: 'bot_admin' }) },
+      },
+      memory: { canEncounter: () => false },
+    }),
+    false
+  );
+
   // Test P8: pending chat
   const p8 = transitions.find((t) => t.priority === 8);
   assert.ok(p8);
   assert.equal(
     p8.condition({
-      memory: { pendingChat: 'Halo bot' },
+      memory: { pendingChat: [{ from: 'steve', message: 'Halo' }] },
     }),
     true
+  );
+  // Array kosong tidak boleh memicu socializing
+  assert.equal(
+    p8.condition({
+      memory: { pendingChat: [] },
+    }),
+    false
   );
 });
